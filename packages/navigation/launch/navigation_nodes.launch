@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Run the map server -->
+  <arg name="map_file" default="$(find navigation)/map/large_round_map.yaml"/>
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+  <!-- Create map from static ground truth-->
+  <arg name="no_static_map" default="false"/>
+
+  <!-- Set global and local planners-->
+  <arg name="base_global_planner" default="global_planner/GlobalPlanner"/>
+  <arg name="base_local_planner" default="dwa_local_planner/DWAPlannerROS"/>
+
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+
+    <param name="base_global_planner" value="$(arg base_global_planner)"/>
+    <param name="base_local_planner" value="$(arg base_local_planner)"/>  
+    <rosparam file="$(find navigation)/config/navigation_nodes/my_move_base.yaml" command="load"/>
+
+    <!-- observation sources located in costmap_common.yaml -->
+    <rosparam file="$(find navigation)/config/navigation_nodes/costmap_common.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find navigation)/config/navigation_nodes/costmap_common.yaml" command="load" ns="local_costmap" />
+
+    <!-- local costmap, needs size -->
+    <rosparam file="$(find navigation)/config/navigation_nodes/local_costmap.yaml" command="load" ns="local_costmap" />
+
+    <!-- static global costmap, static map provides size -->
+    <rosparam file="$(find navigation)/config/navigation_nodes/global_costmap.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
+  </node>
+</launch>

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="navigation" type="stop_sign_detector_node.py" name="stop_sign_detector_node" output="screen">
+        <rosparam command="load" file="$(find navigation)/config/stop_sign_detector_node/default.yaml"/>
+    </node>
+
+  </group>
+
+</launch>

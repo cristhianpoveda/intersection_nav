@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="decision_making" type="decision_making_node.py" name="decision_making_node" output="screen"/>
+
+  </group>
+
+</launch>

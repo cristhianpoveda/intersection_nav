@@ -1,0 +1,18 @@
+Img_process:
+  width: 416
+  height: 416
+  
+  cropped_portion:
+    top: 0.375
+    left: 0.25
+    right: 0.75
+
+  red_mask:
+    lower_1: [0, 100, 20]
+    upper_1: [10, 255, 255]
+    lower_2: [160, 100, 20]
+    upper_2: [179, 255, 255]
+
+detection_distance: -0.5
+stop_distance: -0.21
+calculation_rate: 12

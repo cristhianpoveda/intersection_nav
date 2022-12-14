@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="navigation" type="forward_kinematics_node.py" name="forward_kinematics_node" output="screen"/>
+
+  </group>
+
+</launch>

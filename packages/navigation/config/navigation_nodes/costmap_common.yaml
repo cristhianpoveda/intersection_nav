@@ -1,0 +1,21 @@
+footprint: [[-0.11, -0.065], [-0.11, 0.065], [0.11, 0.065], [0.11, -0.065]]
+footprint_padding: 0.015
+
+robot_base_frame: duckiebot4/footprint
+update_frequency: 4.0
+publish_frequency: 3.0
+transform_tolerance: 0.5
+
+resolution: 0.05
+
+#layer definitions
+static:
+    map_topic: /map
+    subscribe_to_updates: true
+
+#local_static:
+#    map_topic: /local_map
+#    subscribe_to_updates: tru
+
+inflation:
+    inflation_radius: 0.03

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="navigation" type="chief_node.py" name="chief_node" output="screen">
+        <rosparam command="load" file="$(find navigation)/config/chief_node/default.yaml"/>
+    </node>
+
+  </group>
+
+</launch>
