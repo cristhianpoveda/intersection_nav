@@ -1,0 +1,3 @@
+model_path: "/model/road_users.tflite"
+labels: ["back", "duckie", "front"]
+threshold: 0.5

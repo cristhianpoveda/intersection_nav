@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="navigation" type="odom_to_map_node.py" name="odom_to_map_node" output="screen">
+        <rosparam command="load" file="$(find navigation)/config/odom_to_map_node/default.yaml"/>
+    </node>
+
+  </group>
+
+</launch>

@@ -1,2 +1,2 @@
 ---
-std_msgs/Float32MultiArray detections
+std_msgs/Int16MultiArray detections

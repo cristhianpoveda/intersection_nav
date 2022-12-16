@@ -3,12 +3,12 @@
 import rospy
 import actionlib
 from duckietown.dtros import DTROS, NodeType
-from std_srvs.srv import Empty
+import intersection_msgs.msg
 from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDecision, MakeDecisionResponse
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, MoveBaseFeedback
 from duckietown_msgs.msg import FSMState
 from geometry_msgs.msg import PoseWithCovarianceStamped
-from robot_localization import SetPose, SetPoseRequest
+from robot_localization.srv import SetPose, SetPoseRequest
 
 class CoordinatorNode(DTROS):
     # create messages that are used to publish feedback/result

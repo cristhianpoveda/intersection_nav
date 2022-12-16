@@ -5,7 +5,7 @@
 
   <group ns="$(arg veh)">  
 
-    <node pkg="decision_making" type="decision_making_node.py" name="decision_making_node" output="screen"/>
+    <node pkg="decision_making" type="decision_making_node" name="decision_making_node" output="screen"/>
 
   </group>
 

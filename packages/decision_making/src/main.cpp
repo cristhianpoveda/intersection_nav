@@ -6,8 +6,53 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <unordered_map>
 #include <std_srvs/Empty.h>
-#include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Int16MultiArray.h>
 #include <intersection_msgs/MakeDecision.h>
+#include <intersection_msgs/DetectUsers.h>
+
+class DecisionNode{
+    ros::NodeHandle nh;
+    ros::ServiceServer srv_decision;
+    ros::ServiceClient client;
+
+    public:
+        DecisionNode()
+            : nh()
+        {
+            srv_decision = nh.advertiseService("/srv_decision", &DecisionNode::srv_callback, this);
+            client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/detector_node/detect_users");
+        }
+
+        bool srv_callback(intersection_msgs::MakeDecisionRequest &request,
+                          intersection_msgs::MakeDecisionResponse &response){
+            
+            // service callback
+            ROS_INFO("Decision service called");
+
+            ros::WallTime start_time, end_time;
+            start_time = ros::WallTime::now();
+
+            intersection_msgs::DetectUsers detection_service;
+            if (client.call(detection_service))
+            {
+                ROS_INFO("detection succeded");
+            }
+            else
+            {
+                ROS_ERROR("Failed to call service detect_users");
+                return 1;
+            }
+
+            end_time = ros::WallTime::now();
+            float excecution_time = (end_time - start_time).toNSec() * 1e-6;
+
+            ROS_INFO("excecution time: %f", excecution_time);
+
+            response.decision.data = "end";
+
+            return true;
+        }
+};
 
 class SimpleProblem{
 
@@ -72,6 +117,8 @@ class SimpleProblem{
         int destination;
 
         Point nearest_group;
+
+        ros::ServiceClient detection_client;
 
         std::vector<SimpleProblem::Led> front;
         std::vector<SimpleProblem::Led> back;
@@ -446,105 +493,23 @@ class SimpleProblem{
 
         }
 
-        bool srv_callback(intersection_msgs::MakeDecisionRequest &request,
-                          intersection_msgs::MakeDecisionResponse &response){
-            
-            // service callback
-            ROS_INFO("Decision service called");
-
-            ros::WallTime start_time, end_time;
-            start_time = ros::WallTime::now();
-
-            int D_size = 1, DB_size = 1, assigned, front_led_size, back_led_size;
-            float distance, min_distance;
-            Point observed;
-
-            // Reorganize detections loop
-
-            // for(int i = 0 ; i < D_size; i++){
-            //     o.user = 0;
-            //     // projection
-            //     observed.x = 0;
-            //     observed.y = 0.5;
-            //     get_duckie_group(observed);
-            //     solve();
-            //     if(best.action == 1){
-            //         break;
-            //     }
-            // }
-
-            // if(best.action == 0){
-            //     // assing front leds to vehicles
-            //     front_led_size = sizeof(front) / sizeof(front[0]);
-            //     for(int i = 0 ; i < front_led_size; i++){
-            //         min_distance = 1000;
-            //         for(int j = 0 ; j < DB_size; j++){
-            //             distance = pow((front[i].pixel.x - DB_detected.x),2) + pow((front[i].pixel.y - DB_detected.y),2);
-            //             if(distance < min_distance){
-            //                 min_distance = distance;
-            //                 assigned = j;
-            //             }
-            //         }
-            //         front[i].DB = assigned;
-            //     }
-
-            //     // assign back leds to vehicles
-            //     back_led_size = sizeof(back) / sizeof(back[0]);
-            //     for(int i = 0 ; i < back_led_size; i++){
-            //         min_distance = 1000;
-            //         for(int j = 0 ; j < DB_size; j++){
-            //             distance = pow((back[i].pixel.x - DB_detected.x),2) + pow((back[i].pixel.y - DB_detected.y),2);
-            //             if(distance < min_distance){
-            //                 min_distance = distance;
-            //                 assigned = j;
-            //             }
-            //         }
-            //         back[i].DB = assigned;
-            //     }
-
-            //     // Duckiebots
-            //     for(int i = 0 ; i < DB_size; i++){
-            //         o.user = 1;
-            //         // projection
-            //         observed.x = 0.5;
-            //         observed.y = 0.25;
-            //         get_group(i, front_led_size, back_led_size, observed);
-            //         project_onto_trajectory(observed);
-            //         solve();
-            //         if(best.action == 1){
-            //             break;
-            //         }
-            //     }
-            // }
-
-            ROS_INFO("action: %i", best.action);
-
-            end_time = ros::WallTime::now();
-            float excecution_time = (end_time - start_time).toNSec() * 1e-6;
-
-            ROS_INFO("excecution time: %f", excecution_time);
-
-            return true;
-        }
-
-        void detected_users_cb(const std_msgs::Float32MultiArray &msg){
-            detections_array = msg;
-        }
-
     private:
-    std_msgs::Float32MultiArray detections_array;
+    std_msgs::Int16MultiArray detections_array;
 
 };
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "decision_making_node");
-  ros::NodeHandle nh;
+  // ros::NodeHandle nh;
 
-  SimpleProblem sp;
+  DecisionNode node;
 
-  ros::ServiceServer srv_decision = nh.advertiseService("/srv_decision", &SimpleProblem::srv_callback, &sp);
-  ros::Subscriber sub_detection = nh.subscribe("/detected_users", 1, &SimpleProblem::detected_users_cb, &sp);
+//   SimpleProblem sp;
+
+//   ros::ServiceServer srv_decision = nh.advertiseService("/srv_decision", &SimpleProblem::srv_callback, &sp);
+//   ros::ServiceClient client = nh.serviceClient<intersection_msgs::DetectUsers>("duckiebot4/detector_node/detect_users");
+//   sp.detection_client = client;
   
   ROS_INFO("Decision node started");
   ros::spin();

@@ -26,12 +26,12 @@ class ForwardKinematics(DTROS):
         # subscriber to left encoder topic
         self.sub_left_encoder = rospy.Subscriber('/duckiebot4/left_wheel_encoder_node/tick', WheelEncoderStamped, self.cb_left_wheel)
 
-        rospy.Timer(rospy.Duration(self.publish_period), self.cb_timer)
-
         # publishers
         self.pub_rigth_phi = rospy.Publisher('~right_phi/twist', TwistWithCovarianceStamped, queue_size=2)
         self.pub_left_phi = rospy.Publisher('~left_phi/twist', TwistWithCovarianceStamped, queue_size=2)
         self.pub_vel = rospy.Publisher('~duckiebot_base/twist', TwistWithCovarianceStamped, queue_size=2)
+
+        rospy.Timer(rospy.Duration(self.publish_period), self.cb_timer)
 
     def cb_right_wheel(self, right_tick_msg):
         

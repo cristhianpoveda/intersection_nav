@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   intersection_msgs
   move_base_msgs
+  robot_localization
 )
 
 catkin_package()

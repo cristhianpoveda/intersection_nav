@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   cv_bridge
   image_transport
+  intersection_msgs
 )
 
 catkin_package(
@@ -17,6 +18,7 @@ catkin_package(
     sensor_msgs
     cv_bridge
     image_transport
+    intersection_msgs
 )
 
 include_directories(
