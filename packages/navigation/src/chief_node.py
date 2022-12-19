@@ -44,7 +44,7 @@ class CoordinatorNode(DTROS):
 
         # ARRIVE AT STOP SIGN
 
-        rospy.wait_for_service('duckiebot4/stop_sign_detector_node/detect_stop_sign')
+        rospy.wait_for_service('/duckiebot4/stop_sign_detector_node/detect_stop_sign')
         try:
             arr = rospy.ServiceProxy('/duckiebot4/stop_sign_detector_node/detect_stop_sign', DetectStopSign)
             arrived_response = arr()
@@ -58,13 +58,13 @@ class CoordinatorNode(DTROS):
 
         # UPDATE DUCKIEBOT POSE ON MAP
 
-        rospy.wait_for_service('set_pose')
+        rospy.wait_for_service('/set_pose')
         try:
             actual_pose = SetPoseRequest()
             actual_pose.pose.header.frame_id = 'odom'
             actual_pose.pose.pose.pose.position.x = arrived_response.distance.data
             actual_pose.pose.pose.pose.orientation.w = 1.0
-            pose = rospy.ServiceProxy('set_pose', SetPose)
+            pose = rospy.ServiceProxy('/set_pose', SetPose)
             pose()
         except rospy.ServiceException as e:
             rospy.loginfo("Set Pose service call failed: %s"%e)
@@ -75,11 +75,11 @@ class CoordinatorNode(DTROS):
 
 
         # MAKE DECISION
-        decision = "wait"
+        decision = 1
 
-        rospy.wait_for_service('duckiebot4/make_decision')
+        rospy.wait_for_service('/srv_decision')
         try:
-            inf = rospy.ServiceProxy('duckiebot4/make_decision', MakeDecision)
+            inf = rospy.ServiceProxy('/srv_decision', MakeDecision)
             decision_resp = inf(goal.destination)
         except rospy.ServiceException as e:
             rospy.loginfo("Arrive at stop sign service call failed: %s"%e)
@@ -90,7 +90,7 @@ class CoordinatorNode(DTROS):
 
         decision = decision_resp.decision.data
 
-        if decision == "cross":
+        if decision == 0:
 
             # Decision feedback
             self._feedback.tasks = "Aciton: cross"

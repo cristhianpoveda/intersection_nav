@@ -8,7 +8,7 @@ from geometry_msgs.msg import Twist
 class LaneController(DTROS):
     def __init__(self, node_name):
         # initialize the DTROS parent class
-        super(LaneController, self).__init__(node_name=node_name, node_type=NodeType.LOCALIZATION)
+        super(LaneController, self).__init__(node_name=node_name, node_type=NodeType.CONTROL)
 
         # subscriber to velocity topic
         self.sub_vel = rospy.Subscriber('/cmd_vel', Twist, self.cb_cmd_vel)

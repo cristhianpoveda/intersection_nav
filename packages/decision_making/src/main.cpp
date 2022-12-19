@@ -10,50 +10,6 @@
 #include <intersection_msgs/MakeDecision.h>
 #include <intersection_msgs/DetectUsers.h>
 
-class DecisionNode{
-    ros::NodeHandle nh;
-    ros::ServiceServer srv_decision;
-    ros::ServiceClient client;
-
-    public:
-        DecisionNode()
-            : nh()
-        {
-            srv_decision = nh.advertiseService("/srv_decision", &DecisionNode::srv_callback, this);
-            client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/detector_node/detect_users");
-        }
-
-        bool srv_callback(intersection_msgs::MakeDecisionRequest &request,
-                          intersection_msgs::MakeDecisionResponse &response){
-            
-            // service callback
-            ROS_INFO("Decision service called");
-
-            ros::WallTime start_time, end_time;
-            start_time = ros::WallTime::now();
-
-            intersection_msgs::DetectUsers detection_service;
-            if (client.call(detection_service))
-            {
-                ROS_INFO("detection succeded");
-            }
-            else
-            {
-                ROS_ERROR("Failed to call service detect_users");
-                return 1;
-            }
-
-            end_time = ros::WallTime::now();
-            float excecution_time = (end_time - start_time).toNSec() * 1e-6;
-
-            ROS_INFO("excecution time: %f", excecution_time);
-
-            response.decision.data = "end";
-
-            return true;
-        }
-};
-
 class SimpleProblem{
 
     public:
@@ -118,11 +74,6 @@ class SimpleProblem{
 
         Point nearest_group;
 
-        ros::ServiceClient detection_client;
-
-        std::vector<SimpleProblem::Led> front;
-        std::vector<SimpleProblem::Led> back;
-
         // utilities;
         float utilities[2][2] = {{0.9, -1}, {-0.1, 1}};
         
@@ -135,21 +86,12 @@ class SimpleProblem{
 
         // functions
 
-        void min_distance(int index, Point DB_proj){
-    
-            // header
-            // x coordinate, y coordinate, direction along trajectory axis(positive = 1, negative = -1)
-            float ref_points[6][3] = {{0.375, -0.125, 1},
-                                    {0.5, 0.25, -1},
-                                    {0.125, 0.375, -1},
-                                    {0.125, -0.125, 1},
-                                    {0.5, 0.0, -1},
-                                    {0.375, 0.375, -1}};
+        void min_distance(Point DB_proj, float (*ref_points)[3], int len){
     
             float min_distance = 1, distance;
             o.trajectory_group = 0;
     
-            for(int i = index; i < (index + 3); i++){
+            for(int i = 0; i < len; i++){
             
                 distance = sqrt(pow((ref_points[i][0] - DB_proj.x), 2) + pow((ref_points[i][1] - DB_proj.y), 2));
             
@@ -160,71 +102,6 @@ class SimpleProblem{
                     nearest_group.y = ref_points[i][1];
                     o.direction = ref_points[i][2];
                 }
-            }
-        }
-
-        // led interpreter
-        void get_group(int idx, int front_led_size, int back_led_size, Point DB_proj){
-    
-            bool side = false, f = false, b = false, l = false;
-            int pos_f = 0, pos_b = 0, samples = 0, index;
-
-            if(front_led_size > 1){
-                for(int i = 0; i < front_led_size; i++){
-                    if(front[i].DB == idx){
-                        f = true;
-                        pos_f += front[i].pixel.x;
-                        samples++;
-                    }
-                }
-
-                if(samples != 0){
-                    pos_f /= samples;
-                }
-            }
-
-            if(back_led_size > 1){
-                samples = 0;       
-            
-                for(int i = 0; i < back_led_size; i++){
-                    if(back[i].DB == idx){
-                        b = true;
-                        pos_b += back[i].pixel.x;
-                        samples++;
-                    }
-                }
-
-                if(samples != 0){
-                    pos_b /= samples;
-                }
-            }
-
-            side = pos_f < pos_b;
-            
-                if(f * b){
-                
-                    f = false;
-                    b = false;
-                    l = side;
-                }
-
-            if(f){
-
-                index = 0;
-                min_distance(index, DB_proj);
-    
-            }else if(b){
-
-                index = 3;        
-                min_distance(index, DB_proj);
-
-            }else if(l){
-        
-                o.trajectory_group = 6;
-
-            }else{
-    
-                o.trajectory_group = 7;    
             }
         }
 
@@ -343,9 +220,8 @@ class SimpleProblem{
 
         // projection duckiebot
 
-        void project_onto_trajectory(SimpleProblem::Point DB_observed){
-    
-            // header
+        void project_onto_trajectory(SimpleProblem::Point DB_observed, int detection_class){
+
             // Parallel axis, intersection limit, right arc, line, left arc.
             // 0 axis, 1 min limit, 2 max limit, 3:5(h1, k1, r1) 6 len, 7:8(m, b) 9 len, 10:12(h2, k2, r2) 13 len.
             // axis: x = 0, y = 1.
@@ -359,6 +235,12 @@ class SimpleProblem{
                                         {1, -1, 0.375, 0.5, 0.375, 0.125, 0.39, 0, 0.375, 0.5, 0, 0, 10, 10},
                                         {1, -0.125, 0.375, 0.5, -0.125, 0.125, 0.39, 0, 0.375, 0.5, 0.5, 0.375, 0.125, 0.39},
                                         {1, -0.125, 0.375, 0, 0.375, 0.125, 0.39, 0, 0.125, 0.5, 0.5, -0.125, 0.375, 1.18}};
+
+            if(detection_class == 0){
+                min_distance(DB_observed, back_ref_points, len_back);
+            }else{
+                min_distance(DB_observed, front_ref_points, len_front);
+            }
     
             Projected_point Pp_line;
     
@@ -494,22 +376,99 @@ class SimpleProblem{
         }
 
     private:
-    std_msgs::Int16MultiArray detections_array;
+        // header
+        // x coordinate, y coordinate, direction along trajectory axis(positive = 1, negative = -1)
+        float front_ref_points[4][3] = {{0.375, -0.125, 1},
+                                            {0.5, 0.25, -1},
+                                            {0.125, 0.375, -1},
+                                            {0.0, 0.25, 1}};
 
+        int len_front = 4;
+
+        float back_ref_points[3][3] = {{0.125, -0.125, 1},
+                                            {0.5, 0.0, -1},
+                                            {0.375, 0.375, -1}};
+
+        int len_back = 3;
+
+};
+
+class DecisionNode{
+    ros::NodeHandle nh;
+    ros::ServiceServer srv_decision;
+    ros::ServiceClient client;
+
+    public:
+        DecisionNode()
+            : nh()
+        {
+            srv_decision = nh.advertiseService("/srv_decision", &DecisionNode::srv_callback, this);
+            client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/detector_node/detect_users");
+        }
+
+        SimpleProblem sp;
+
+        bool srv_callback(intersection_msgs::MakeDecisionRequest &request,
+                          intersection_msgs::MakeDecisionResponse &response){
+            
+            // service callback
+            ROS_INFO("Decision service called");
+
+            ros::WallTime start_time, end_time;
+            start_time = ros::WallTime::now();
+
+            sp.destination = request.destination.data;
+            sp.best.action = 0;            
+
+            int num_of_detections = 0, detection_class, idx;
+
+            intersection_msgs::DetectUsers detection_service;
+            if (client.call(detection_service))
+            {
+                ROS_INFO("detection succeded");
+                num_of_detections = detection_service.response.detections.data[0];
+                for(int i = 0; i < num_of_detections; i++){
+
+                    detection_class = detection_service.response.detections.data[4 * i + 1];
+                    SimpleProblem::Point observed;
+                    observed.x = detection_service.response.detections.data[4 * i + 3] / 100;
+                    observed.y = detection_service.response.detections.data[4 * i + 4] / 100;
+
+                    if(detection_class == 1){
+                        sp.get_duckie_group(observed);
+                    }else{
+                        sp.project_onto_trajectory(observed, detection_class);
+                    }
+
+                    sp.solve();
+
+                    if(sp.best.action == 1){
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                ROS_ERROR("Failed to call service detect_users");
+                return 1;
+            }
+
+            end_time = ros::WallTime::now();
+            float excecution_time = (end_time - start_time).toNSec() * 1e-6;
+
+            ROS_INFO("excecution time: %f", excecution_time);
+
+            response.decision.data = sp.best.action;
+
+            return true;
+        }
 };
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "decision_making_node");
-  // ros::NodeHandle nh;
 
   DecisionNode node;
-
-//   SimpleProblem sp;
-
-//   ros::ServiceServer srv_decision = nh.advertiseService("/srv_decision", &SimpleProblem::srv_callback, &sp);
-//   ros::ServiceClient client = nh.serviceClient<intersection_msgs::DetectUsers>("duckiebot4/detector_node/detect_users");
-//   sp.detection_client = client;
   
   ROS_INFO("Decision node started");
   ros::spin();

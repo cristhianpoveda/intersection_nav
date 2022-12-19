@@ -7,7 +7,7 @@ import math
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import CompressedImage, CameraInfo
 from duckietown_msgs.msg import FSMState
 from std_msgs.msg import String
 from std_srvs.srv import EmptyResponse, Empty
@@ -33,7 +33,7 @@ class StopSignDetector(DTROS):
         self.srv_stop_sign = rospy.Service('~detect_stop_sign', DetectStopSign, self.srv_stop)
 
         # publisher (edited image)
-        self.pub_center = rospy.Publisher('~detected_center', Image, queue_size=1)
+        self.pub_center = rospy.Publisher('~detected_center/compressed', CompressedImage, queue_size=1)
 
         self.pub_dist = rospy.Publisher('~stop_line_distance', String, queue_size=1)
 
@@ -43,7 +43,7 @@ class StopSignDetector(DTROS):
         self.bridge = CvBridge()
 
         # subscriber to camera_node/image/compressed
-        self.sub = rospy.Subscriber('/duckiebot4/camera_node/image', Image, self.camera, queue_size=1)
+        self.sub = rospy.Subscriber('/duckiebot4/camera_node/image', CompressedImage, self.camera, queue_size=1)
 
     def srv_stop(self, req=None):
         pos = self._detection_distance
@@ -128,7 +128,8 @@ class StopSignDetector(DTROS):
     def camera(self, image):
 
         try:
-            self.image_np = self.bridge.imgmsg_to_cv2(image, "bgr8")
+            self.image_np = self.compressed_imgmsg_to_cv2(image)
+            #self.image_np = self.bridge.imgmsg_to_cv2(image, "bgr8")
         except CvBridgeError as e:
             print(e)
 

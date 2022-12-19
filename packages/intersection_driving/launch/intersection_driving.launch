@@ -7,16 +7,16 @@
        <arg name="veh" value="$(arg veh)"/>
     </include>
 
+    <!-- Forward kinematics node  -->
+    <include file="$(find navigation)/launch/forward_kinematics_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+
     <!-- Localization node (Duckiebot -> Odom transform) -->
     <include file="$(find navigation)/launch/localization_node.launch"/>
 
     <!-- Localization node (Odom -> Map transform) -->
     <include file="$(find navigation)/launch/odom_to_map_node.launch">
-        <arg name="veh" value="$(arg veh)"/>
-    </include>
-
-    <!-- Forward kinematics node  -->
-    <include file="$(find navigation)/launch/forward_kinematics_node.launch">
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
@@ -36,6 +36,11 @@
     <!-- Decision making node. Determines wheather to attempt crossing the intersection 
     or not based on detected road users -->
     <include file="$(find decision_making)/launch/decision_making_node.launch" >
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+
+    <!-- Lane controller node. Translates from Twist msg to Twist2DStamped msg -->
+    <include file="$(find detection)/launch/object_detection_node.launch">
         <arg name="veh" value="$(arg veh)"/>
     </include>
 

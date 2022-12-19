@@ -39,6 +39,9 @@ class ObjectDetector(DTROS):
         
         self.image_np = np.zeros((640, 480, 3), dtype = "uint8")
 
+        self.K = np.array([[322.93673636507424,0.0,327.09788378259907],[0.0,321.852444071687,207.09902413788922],[0.0,0.0,1.0]])
+        self.D=np.array([[-0.26239184522108644],[0.04732311174178657],[0.007784609968258371],[-0.0011570519649992076]])
+
         self.stop = False
 
         # detect stop sign service
@@ -54,15 +57,27 @@ class ObjectDetector(DTROS):
 
         rospy.Timer(rospy.Duration(1.4), self.cb_timer)
 
+    def undistort(self, img):
+    
+        h= img.shape[0]
+        w = img.shape[1]
+        newmatrix, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D,(w,h),1, (w,h))
+        map1, map2 = cv2.fisheye.initUndistortRectifyMap(self.K, self.D, np.eye(3),self.K, (w,h), cv2.CV_32FC1)
+        undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR)
+
+        return undistorted_img
+
     def cb_timer(self, event): #req=None
 
         # remove the image undesired section
-        h, wi = self.image_np.shape[0:2]
-        input_img = self.image_np[int(h*1/4) :, :, :]
+        undistorted_img = self.undistort(self.image_np)
+
+        h, wi = undistorted_img.shape[0:2]
+        # input_img = undistorted_img[int(h*1/4) :, :, :]
 
         # resize image to fit in the model
         dim = (self.width, self.height)
-        resized_img = cv2.resize(input_img, dim, interpolation = cv2.INTER_LINEAR)
+        resized_img = cv2.resize(undistorted_img, dim, interpolation = cv2.INTER_LINEAR)
 
         # add N dim
         input_data = np.expand_dims(resized_img, axis=0)
@@ -84,6 +99,8 @@ class ObjectDetector(DTROS):
 
         detections = []
 
+        detections.append(len(scores))
+
         # Loop over all detections and draw detection box if confidence is above minimum threshold
         for i in range(len(scores)):
             if ((scores[i] > self.threshold) and (scores[i] <= 1.0)):
@@ -95,24 +112,24 @@ class ObjectDetector(DTROS):
                 ymax = int(min(h,(boxes[i][2] * h)))
                 xmax = int(min(wi,(boxes[i][3] * wi)))
             
-                cv2.rectangle(input_img, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
+                cv2.rectangle(undistorted_img, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
 
                 # # Draw label
                 object_name = self.labels[int(classes[i])] # Look up object name from "labels" array using class index
                 label = '%s: %d%%' % (object_name, int(scores[i]*100)) # Example: 'person: 72%'
                 labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) # Get font size
                 label_ymin = max(ymin, labelSize[1] + 10) # Make sure not to draw label too close to top of window
-                cv2.rectangle(input_img, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
-                cv2.putText(input_img, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
+                cv2.rectangle(undistorted_img, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
+                cv2.putText(undistorted_img, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
 
                 detections.append([object_name, scores[i], xmin, ymin, xmax, ymax])
 
         try:
-            self.pub_detections.publish(self.bridge.cv2_to_imgmsg(input_img, "rgb8"))
+            self.pub_detections.publish(self.bridge.cv2_to_imgmsg(undistorted_img, "rgb8"))
         except CvBridgeError as e:
             print(e)
 
-        #print(detections)
+        print(detections)
 
         out_buffer = DetectUsersResponse()
         out_buffer.detections.data = [1,2]
