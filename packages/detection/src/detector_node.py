@@ -8,7 +8,7 @@ import math
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import CompressedImage, CameraInfo
 from std_msgs.msg import String
 from std_srvs.srv import EmptyResponse, Empty
 from intersection_msgs.srv import DetectUsers, DetectUsersResponse
@@ -26,6 +26,10 @@ class ObjectDetector(DTROS):
         self.model_path = rospack.get_path('detection') + rospy.get_param('~model_path')
         self.labels = rospy.get_param('~labels')
         self.threshold = rospy.get_param('~threshold')
+        self.duckie_h = rospy.get_param('~duckie_h')
+        self.duckiebot_h = rospy.get_param('~duckiebot_h')
+        self.hfov = rospy.get_param('~hfov')
+        self.img_w = rospy.get_param('~img_w')
 
         self.interpreter = tflite.Interpreter(model_path=self.model_path)
         
@@ -53,7 +57,7 @@ class ObjectDetector(DTROS):
         #self.pub_detections = rospy.Publisher('~detections', Image, queue_size=1)
 
         # subscriber to camera_node/image/compressed
-        self.sub = rospy.Subscriber('/duckiebot4/camera_node/image', Image, self.camera, queue_size=1)
+        self.sub = rospy.Subscriber('/duckiebot4/camera_node/image/compressed', CompressedImage, self.camera, queue_size=1)
 
         #rospy.Timer(rospy.Duration(1.4), self.cb_timer)
 
@@ -66,6 +70,13 @@ class ObjectDetector(DTROS):
         undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR)
 
         return undistorted_img
+
+    def coordinates(self, ymax, ymin, xmax, xmin, h):
+        distance = 0.35 * (h) / (ymax - ymin) # D=(F*W)*P
+        angle = (self.hfov / self.img_w) * ((xmax + xmin) / 2) # (HFOV / Wimagen) * Cx
+        pos_x = int(100 * distance * np.cos(angle))
+        pos_y = int(100 * distance * np.sin(angle))
+        return pos_x, pos_y
 
     def srv_detect(self, req=None):
 
@@ -123,11 +134,14 @@ class ObjectDetector(DTROS):
                 # cv2.rectangle(input_img, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
                 # cv2.putText(input_img, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
 
-                y_proj = int(100 * (ymax - ymin))
-                x_proj = int(100 * (xmax - xmin))
+                if(int(classes[i]) == 1):
+                    pos_x, pos_y = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h)
+
+                else:
+                    pos_x, pos_y = self.coordinates(ymax, ymin, xmax, xmin, self.duckiebot_h)
 
                 out_score = int(100 * scores[i])
-                detections.extend([object_name, out_score, x_proj, y_proj])
+                detections.extend([object_name, out_score, pos_x, pos_y])
 
         rospy.loginfo(detections)
 
@@ -139,7 +153,7 @@ class ObjectDetector(DTROS):
     def camera(self, image):
 
         try:
-            self.image_np = self.compressed_imgmsg_to_cv2(image)
+            self.image_np = self.bridge.compressed_imgmsg_to_cv2(image)
             #self.image_np = self.bridge.imgmsg_to_cv2(image, "rgb8")
         except CvBridgeError as e:
             print(e)

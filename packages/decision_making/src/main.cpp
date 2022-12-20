@@ -431,7 +431,7 @@ class DecisionNode{
 
                     detection_class = detection_service.response.detections.data[4 * i + 1];
                     SimpleProblem::Point observed;
-                    observed.x = detection_service.response.detections.data[4 * i + 3] / 100;
+                    observed.x = - 0.2 + detection_service.response.detections.data[4 * i + 3] / 100;
                     observed.y = detection_service.response.detections.data[4 * i + 4] / 100;
 
                     if(detection_class == 1){

@@ -1,3 +1,7 @@
 model_path: "/model/road_users.tflite"
 labels: ["back", "duckie", "front"]
 threshold: 0.5
+duckie_h: 0.043
+duckiebot_h: 0.107
+hfov: 1828
+img_w: 640
