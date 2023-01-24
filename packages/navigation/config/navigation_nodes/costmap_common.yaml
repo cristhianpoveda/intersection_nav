@@ -13,9 +13,5 @@ static:
     map_topic: /map
     subscribe_to_updates: true
 
-#local_static:
-#    map_topic: /local_map
-#    subscribe_to_updates: tru
-
 inflation:
     inflation_radius: 0.03

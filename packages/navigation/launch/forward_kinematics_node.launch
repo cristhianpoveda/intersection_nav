@@ -5,7 +5,9 @@
 
   <group ns="$(arg veh)">  
 
-    <node pkg="navigation" type="forward_kinematics_node.py" name="forward_kinematics_node" output="screen"/>
+    <node pkg="navigation" type="forward_kinematics_node.py" name="forward_kinematics_node" output="screen">
+      <rosparam command="load" file="$(find navigation)/config/forward_kinematics_node/default.yaml"/>
+    </node>
 
   </group>
 
