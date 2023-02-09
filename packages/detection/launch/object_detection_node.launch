@@ -5,7 +5,7 @@
 
   <group ns="$(arg veh)">  
 
-    <node pkg="detection" type="detector_node.py" name="detector_node" output="screen">
+    <node pkg="detection" type="runtime_detector.py" name="runtime_detector" output="screen">
         <rosparam command="load" file="$(find detection)/config/object_detection_node/default.yaml"/>
 
     </node>

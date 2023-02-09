@@ -1,18 +1,24 @@
-Img_process:
-  width: 416
-  height: 416
-  
-  cropped_portion:
-    top: 0.375
-    left: 0.25
-    right: 0.75
+red_lower_1: [0, 100, 20]
+red_upper_1: [10, 255, 255]
+red_lower_2: [160, 100, 20]
+red_upper_2: [179, 255, 255]
 
-  red_mask:
-    lower_1: [0, 100, 20]
-    upper_1: [10, 255, 255]
-    lower_2: [160, 100, 20]
-    upper_2: [179, 255, 255]
-
-detection_distance: -0.5
-stop_distance: -0.21
+detection_distance: 0.5
+stop_distance: 0.21
 calculation_rate: 12
+lane_width: 0.2
+
+fx: 330.68996032726204
+fy: 329.1513815365187
+cx: 322.86657182645575
+cy: 220.5854567519412
+
+k1: -0.2728147631495431
+k2: 0.05205371262290338
+k3: 0.0022050238079098093
+k4: 1.5397375047533728e-05
+
+img_w: 640
+img_h: 480
+
+camera_h: 0.107

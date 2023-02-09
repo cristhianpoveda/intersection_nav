@@ -1,10 +1,11 @@
-footprint: [[-0.11, -0.065], [-0.11, 0.065], [0.11, 0.065], [0.11, -0.065]]
-footprint_padding: 0.015
+# footprint: [[-0.11, -0.065], [-0.11, 0.065], [0.11, 0.065], [0.11, -0.065]]
+robot_radius: 0.08
+footprint_padding: 0.0
 
 robot_base_frame: duckiebot4/footprint
 update_frequency: 4.0
 publish_frequency: 3.0
-transform_tolerance: 0.5
+transform_tolerance: 0.55
 
 resolution: 0.05
 
@@ -14,4 +15,7 @@ static:
     subscribe_to_updates: true
 
 inflation:
-    inflation_radius: 0.03
+    inflation_radius: 0.06
+
+inflation_local:
+    inflation_radius: 0.01

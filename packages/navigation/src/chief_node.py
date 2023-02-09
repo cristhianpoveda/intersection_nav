@@ -5,6 +5,7 @@ import actionlib
 from duckietown.dtros import DTROS, NodeType
 import intersection_msgs.msg
 from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDecision, MakeDecisionResponse
+from duckietown_msgs.srv import SetValue, SetValueResponse
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, MoveBaseFeedback
 from duckietown_msgs.msg import FSMState
 from geometry_msgs.msg import PoseWithCovarianceStamped
@@ -58,7 +59,7 @@ class CoordinatorNode(DTROS):
 
         # UPDATE DUCKIEBOT POSE ON MAP
 
-        rospy.wait_for_service('/set_pose')
+        rospy.wait_for_service('/duckiebot4/velocity_to_pose_node/update_pose')
         try:
             actual_pose = SetPoseRequest()
             actual_pose.pose.header.frame_id = 'odom'

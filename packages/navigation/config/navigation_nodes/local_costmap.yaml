@@ -4,4 +4,4 @@ width: 0.45
 height: 0.45
 plugins:
   - {name: static,                type: "costmap_2d::StaticLayer"}
-  - {name: inflation,                 type: "costmap_2d::InflationLayer"}
+  - {name: inflation_local,                 type: "costmap_2d::InflationLayer"}

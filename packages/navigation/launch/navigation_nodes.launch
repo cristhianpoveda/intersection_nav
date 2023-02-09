@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <!-- Run the map server -->
-  <arg name="map_file" default="$(find navigation)/map/spacee_map.yaml"/>
+  <arg name="map_file" default="$(find navigation)/map/mod_map.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
 
   <!-- Create map from static ground truth-->

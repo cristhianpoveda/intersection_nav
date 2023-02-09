@@ -12,9 +12,6 @@
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
-    <!-- Localization node (Duckiebot -> Odom transform) -->
-    <include file="$(find navigation)/launch/localization_node.launch"/>
-
     <!-- Localization node (Odom -> Map transform) -->
     <include file="$(find navigation)/launch/odom_to_map_node.launch">
         <arg name="veh" value="$(arg veh)"/>
@@ -23,7 +20,7 @@
     <!-- Navigation nodes: map_server, move_base -->
     <include file="$(find navigation)/launch/navigation_nodes.launch" />
 
-    <!-- Stop signal detector -->
+    <!-- Stop sign detector -->
     <include file="$(find navigation)/launch/stop_sign_detector_node.launch">
         <arg name="veh" value="$(arg veh)"/>
     </include>
@@ -39,7 +36,7 @@
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
-    <!-- Lane controller node. Translates from Twist msg to Twist2DStamped msg -->
+    <!-- Object detection node. -->
     <include file="$(find detection)/launch/object_detection_node.launch">
         <arg name="veh" value="$(arg veh)"/>
     </include>
