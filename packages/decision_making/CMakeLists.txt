@@ -26,7 +26,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_executable(decision_making_node src/main.cpp)
+add_executable(decision_making_node src/main.cpp src/simple_problem.h)
 #set_target_properties(${PROJECT_NAME}_decision_making_node PROPERTIES OUTPUT_NAME decision_making_node PREFIX "")
 add_dependencies(decision_making_node ${${PROJECT_NAME}EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(decision_making_node ${catkin_LIBRARIES} ${OpenCV_INCLUDE_DIRS})

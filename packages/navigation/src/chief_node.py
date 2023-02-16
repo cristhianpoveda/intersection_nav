@@ -5,7 +5,7 @@ import actionlib
 from duckietown.dtros import DTROS, NodeType
 import intersection_msgs.msg
 from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDecision, MakeDecisionResponse
-from duckietown_msgs.srv import SetValue, SetValueResponse
+from duckietown_msgs.srv import SetValue, SetValueRequest
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, MoveBaseFeedback
 from duckietown_msgs.msg import FSMState
 from geometry_msgs.msg import PoseWithCovarianceStamped
@@ -61,11 +61,9 @@ class CoordinatorNode(DTROS):
 
         rospy.wait_for_service('/duckiebot4/velocity_to_pose_node/update_pose')
         try:
-            actual_pose = SetPoseRequest()
-            actual_pose.pose.header.frame_id = 'odom'
-            actual_pose.pose.pose.pose.position.x = arrived_response.distance.data
-            actual_pose.pose.pose.pose.orientation.w = 1.0
-            pose = rospy.ServiceProxy('/set_pose', SetPose)
+            actual_pose = SetValueRequest()
+            actual_pose.value = - arrived_response.distance.data
+            pose = rospy.ServiceProxy('/duckiebot4/velocity_to_pose_node/update_pose', SetValue)
             pose()
         except rospy.ServiceException as e:
             rospy.loginfo("Set Pose service call failed: %s"%e)
@@ -81,7 +79,7 @@ class CoordinatorNode(DTROS):
         rospy.wait_for_service('/srv_decision')
         try:
             inf = rospy.ServiceProxy('/srv_decision', MakeDecision)
-            decision_resp = inf(goal.destination)
+            decision_resp = inf(goal.destination, arrived_response.distance.data)
         except rospy.ServiceException as e:
             rospy.loginfo("Arrive at stop sign service call failed: %s"%e)
         

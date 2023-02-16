@@ -1,3 +1,4 @@
-std_msgs/Int8 destination
+std_msgs/Int16 destination
+std_msgs/Float32 stop_dist
 ---
-std_msgs/Int8 decision
+std_msgs/Int16 decision

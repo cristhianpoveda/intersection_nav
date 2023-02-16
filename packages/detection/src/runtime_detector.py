@@ -9,8 +9,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import Image, CameraInfo, CompressedImage 
-from std_msgs.msg import String
-from std_srvs.srv import EmptyResponse, Empty
+from std_msgs.msg import Float32
 from intersection_msgs.srv import DetectUsers, DetectUsersResponse
 import tflite_runtime.interpreter as tflite
 
@@ -40,6 +39,8 @@ class ObjectDetector(DTROS):
         self.hfov = rospy.get_param('~hfov')
         self.img_w = rospy.get_param('~img_w')
         self.img_h = rospy.get_param('~img_h')
+        self.scale_db = rospy.get_param('~scale_db')
+        self.scale_d = rospy.get_param('~scale_d')
 
         self.interpreter = tflite.Interpreter(model_path=self.model_path)
         
@@ -62,62 +63,61 @@ class ObjectDetector(DTROS):
         self.stop = False
 
         # detect stop sign service
-        #self.srv_stop_sign = rospy.Service('~detect_users', DetectUsers, self.srv_detect)
+        self.srv_stop_sign = rospy.Service('~detect_users', DetectUsers, self.srv_detect)
 
         self.bridge = CvBridge()
 
         # publisher (edited image)
         self.pub_detections = rospy.Publisher('~detections', Image, queue_size=1)
 
+        self.pub_time_ann = rospy.Publisher('~debug/inference_time', Float32, queue_size=1)
+
+        self.pub_time_proj = rospy.Publisher('~debug/projection_time', Float32, queue_size=1)
+
         # subscriber to camera_node/image/compressed
         self.sub = rospy.Subscriber('/duckiebot4/camera_node/image/compressed', CompressedImage, self.camera, queue_size=1)
-
-        rospy.Timer(rospy.Duration(1.4), self.cb_timer)
 
     def undistort(self, img):
 
         h, w = img.shape[0:2]
         newmatrix, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (w,h), 1, (w,h))
         undistorted_img = cv2.undistort(img, self.K, self.D, None, newmatrix)
-        # x_r, y_r, w_r, h_r = roi
-        # undistorted_img = undistorted_img[y_r:y_r+h_r, x_r:x_r+w_r]
-        # resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_NEAREST)
+        x_r, y_r, w_r, h_r = roi
+        undistorted_img = undistorted_img[y_r:y_r+h_r, x_r:x_r+w_r]
+        resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_NEAREST)
 
-        #return resized_img
-        return undistorted_img
+        return resized_img
 
-    def coordinates(self, ymax, ymin, xmax, xmin, h):
+    def coordinates(self, ymax, ymin, xmax, xmin, h, scale_coeficient):
 
-        #start_projection_time = rospy.get_rostime()
+        start_projection_time = rospy.get_rostime()
 
-        distance = self.focal * h / (ymax - ymin)
-
-        angle = self.angle_constant * ((xmax + xmin) / 2)
+        angle = - (self.angle_constant * ((xmax + xmin) / 2) - self.hfov / 2)
         angle_rads = np.radians(angle)
 
-        pos_x = int(100 * distance * np.cos(angle_rads))
-        pos_y = int(100 * distance * np.sin(angle_rads))
+        distance = scale_coeficient * abs(angle) + self.focal * h / (ymax - ymin)
 
-        #end_projection_time = rospy.get_rostime()
-        #projection_time = (end_projection_time - start_projection_time).to_sec()
+        rospy.loginfo("angle: %f", angle)
+        rospy.loginfo("distance: %f", distance)
 
-        return pos_x, pos_y, distance, angle
+        pos_x = 0.0582 + distance * np.cos(angle_rads)
+        pos_y = distance * np.sin(angle_rads)
 
-    def cb_timer(self, event): #req=None
+        end_projection_time = rospy.get_rostime()
+        projection_time = (end_projection_time - start_projection_time).to_sec()
 
-        # remove the image undesired section
+        return pos_x, pos_y, projection_time
+
+    def srv_detect(self, req=None):
+
+        detection_num = 0
+
         undistorted_img = self.undistort(self.image_np)
 
         h, wi = undistorted_img.shape[0:2]
-        rospy.loginfo("undisorted_h: %i", h)
-        rospy.loginfo("undisorted_w: %i", wi)
-        # input_img = undistorted_img[int(h*1/4) :, :, :]
 
         # resize image to fit in the model
         dim = (self.width, self.height)
-
-        rospy.loginfo("img_h: %i", self.height)
-        rospy.loginfo("img_w: %i", self.width)
 
         resized_img = cv2.resize(undistorted_img, dim, interpolation = cv2.INTER_LINEAR)
 
@@ -132,7 +132,10 @@ class ObjectDetector(DTROS):
         end = rospy.get_rostime()
         inference_time = (end - start).to_sec()
 
-        rospy.loginfo("Inference time: %f", inference_time)
+        if self.pub_time_ann.anybody_listening():
+
+            time_msg = inference_time
+            self.pub_time_ann.publish(time_msg)
 
         # Retrieve detection results
         boxes = self.interpreter.get_tensor(self.output_details[self.boxes_idx]['index'])[0] # Bounding box coordinates of detected objects
@@ -141,11 +144,11 @@ class ObjectDetector(DTROS):
 
         detections = []
 
-        detections.append(len(scores))
-
         # Loop over all detections and draw detection box if confidence is above minimum threshold
         for i in range(len(scores)):
             if ((scores[i] > self.threshold) and (scores[i] <= 1.0)):
+
+                detection_num += 1
 
                 # Get bounding box coordinates and draw box
                 # Interpreter can return coordinates that are outside of image dimensions, need to force them to be within image using max() and min()
@@ -153,37 +156,49 @@ class ObjectDetector(DTROS):
                 xmin = int(max(1,(boxes[i][1] * wi)))
                 ymax = int(min(h,(boxes[i][2] * h)))
                 xmax = int(min(wi,(boxes[i][3] * wi)))
-            
-                cv2.rectangle(undistorted_img, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
 
-                # # Draw label
-                object_name = self.labels[int(classes[i])] # Look up object name from "labels" array using class index
-                label = '%s: %d%%' % (object_name, int(scores[i]*100)) # Example: 'person: 72%'
-                labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) # Get font size
-                label_ymin = max(ymin, labelSize[1] + 10) # Make sure not to draw label too close to top of window
-                cv2.rectangle(undistorted_img, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
-                cv2.putText(undistorted_img, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
+                if self.pub_detections.anybody_listening():
+            
+                    cv2.rectangle(undistorted_img, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
+
+                    # # Draw label
+                    object_name = self.labels[int(classes[i])] # Look up object name from "labels" array using class index
+                    label = '%s: %d%%' % (object_name, int(scores[i]*100)) # Example: 'person: 72%'
+                    labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) # Get font size
+                    label_ymin = max(ymin, labelSize[1] + 10) # Make sure not to draw label too close to top of window
+                    cv2.rectangle(undistorted_img, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
+                    cv2.putText(undistorted_img, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
+
+                    try:
+                        self.pub_detections.publish(self.bridge.cv2_to_imgmsg(undistorted_img, "rgb8"))
+                    except CvBridgeError as e:
+                        print(e)
+
+                detection_class = int(classes[i])
 
                 if(int(classes[i]) == 0):
-                    pos_x, pos_y, distance, angle = self.coordinates(ymax, ymin, xmax, xmin, self.back_h)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.back_h, self.scale_db)
 
                 elif(int(classes[i]) == 1):
-                    pos_x, pos_y, distance, angle = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h, self.scale_d)
 
                 else:
-                    pos_x, pos_y, distance, angle = self.coordinates(ymax, ymin, xmax, xmin, self.front_h)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.front_h, self.scale_db)
 
-                detections.append([object_name, scores[i], xmin, ymin, xmax, ymax, pos_x, pos_y])
+                detections.extend([detection_class, pos_x, pos_y])
 
-                rospy.loginfo("distance %f", distance)
-                rospy.loginfo("angle %f", angle)
+                if self.pub_time_proj.anybody_listening():
 
-        try:
-            self.pub_detections.publish(self.bridge.cv2_to_imgmsg(undistorted_img, "rgb8"))
-        except CvBridgeError as e:
-            print(e)
+                    time_msg_proj = projection_time
+                    self.pub_time_proj.publish(time_msg_proj)
 
         print(detections)
+
+        out_buffer = DetectUsersResponse()
+        out_buffer.detections.layout.data_offset = detection_num
+        out_buffer.detections.data = detections
+
+        return out_buffer
     
     def camera(self, image):
 

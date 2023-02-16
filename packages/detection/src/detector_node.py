@@ -39,6 +39,8 @@ class ObjectDetector(DTROS):
         self.hfov = rospy.get_param('~hfov')
         self.img_w = rospy.get_param('~img_w')
         self.img_h = rospy.get_param('~img_h')
+        self.scale_db = rospy.get_param('~scale_db')
+        self.scale_d = rospy.get_param('~scale_d')
 
         self.interpreter = tflite.Interpreter(model_path=self.model_path)
         
@@ -81,16 +83,16 @@ class ObjectDetector(DTROS):
 
         return resized_img
 
-    def coordinates(self, ymax, ymin, xmax, xmin, h):
+    def coordinates(self, ymax, ymin, xmax, xmin, h, scale_coeficient):
 
         start_projection_time = rospy.get_rostime()
 
-        distance = self.focal * h / (ymax - ymin)
-
-        angle = ((self.hfov - 13) / 2) - self.angle_constant * ((xmax + xmin) / 2)
+        angle = - (self.angle_constant * ((xmax + xmin) / 2) - 80)
         angle_rads = np.radians(angle)
 
-        pos_x = int(100 * distance * np.cos(angle_rads))
+        distance = scale_coeficient * abs(angle) + self.focal * h / (ymax - ymin)
+
+        pos_x = int(5.82 + 100 * distance * np.cos(angle_rads))
         pos_y = int(100 * distance * np.sin(angle_rads))
 
         end_projection_time = rospy.get_rostime()
@@ -131,8 +133,6 @@ class ObjectDetector(DTROS):
 
         detections = []
 
-        detections.append(len(scores))
-
         # Loop over all detections and draw detection box if confidence is above minimum threshold
         for i in range(len(scores)):
             if ((scores[i] > self.threshold) and (scores[i] <= 1.0)):
@@ -147,22 +147,20 @@ class ObjectDetector(DTROS):
                 object_name = int(classes[i])
 
                 if(int(classes[i]) == 0):
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.back_h)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.back_h, self.scale_db)
 
                 elif(int(classes[i]) == 1):
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h, self.scale_d)
 
                 else:
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.front_h)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.front_h, self.scale_db)
 
                 if self.pub_time_proj.anybody_listening():
 
                     time_msg_proj = projection_time
                     self.pub_time_proj.publish(time_msg_proj)
 
-                out_score = int(100 * scores[i])
-
-                detections.extend([object_name, out_score, pos_x, pos_y])
+                detections.extend([object_name, pos_x, pos_y])
 
         out_buffer = DetectUsersResponse()
         out_buffer.detections.data = detections

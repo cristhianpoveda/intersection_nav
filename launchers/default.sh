@@ -19,8 +19,8 @@ dt-launchfile-init
 #dt-exec roslaunch navigation lane_controller_node.launch veh:="$VEHICLE_NAME"
 #dt-exec roslaunch navigation translator_node.launch veh:="$VEHICLE_NAME"
 #dt-exec roslaunch navigation stop_sign_detector_node.launch veh:="$VEHICLE_NAME"
-#dt-exec roslaunch intersection_driving intersection_driving.launch veh:="$VEHICLE_NAME"
-dt-exec roslaunch detection object_detection_node.launch veh:="$VEHICLE_NAME"
+dt-exec roslaunch intersection_driving intersection_driving.launch veh:="$VEHICLE_NAME"
+#dt-exec roslaunch detection object_detection_node.launch veh:="$VEHICLE_NAME"
 #dt-exec roslaunch decision_making decision_making_node.launch veh:="$VEHICLE_NAME"
 
 # ----------------------------------------------------------------------------
