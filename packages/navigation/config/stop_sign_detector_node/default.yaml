@@ -5,7 +5,6 @@ red_upper_2: [179, 255, 255]
 
 detection_distance: 0.5
 stop_distance: 0.21
-calculation_rate: 12
 lane_width: 0.2
 
 fx: 330.68996032726204

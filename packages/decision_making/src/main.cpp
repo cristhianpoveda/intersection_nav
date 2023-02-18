@@ -22,7 +22,7 @@ class DecisionNode{
             client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/runtime_detector/detect_users");
         }
 
-        SimpleProblem sp;
+        SimpleProblem simple_problem;
 
         bool srv_callback(intersection_msgs::MakeDecisionRequest &request,
                           intersection_msgs::MakeDecisionResponse &response){
@@ -30,8 +30,8 @@ class DecisionNode{
             ros::WallTime start_time, end_time;
             start_time = ros::WallTime::now();
 
-            sp.destination = request.destination.data;
-            sp.best.action = 0;            
+            simple_problem.destination = request.destination.data;
+            simple_problem.best.action = 0;            
 
             int num_of_detections = 0, idx, class_idx, x_idx, y_idx;
 
@@ -46,7 +46,7 @@ class DecisionNode{
                     x_idx = class_idx + 1;
                     y_idx = class_idx + 2;
 
-                    sp.o.user = int(detection_service.response.detections.data[class_idx]);
+                    simple_problem.observation.user = int(detection_service.response.detections.data[class_idx]);
                     SimpleProblem::Point observed;
                     observed.x = detection_service.response.detections.data[x_idx] - request.stop_dist.data;
                     observed.y = detection_service.response.detections.data[y_idx];
@@ -54,20 +54,20 @@ class DecisionNode{
                     ROS_INFO("x_p: %f", observed.x);
                     ROS_INFO("y_p: %f", observed.y);
 
-                    if(sp.o.user == 1){
-                        sp.get_duckie_group(observed);
+                    if(simple_problem.observation.user == 1){
+                        simple_problem.get_duckie_group(observed);
                     }else{
-                        sp.project_onto_trajectory(observed);
+                        simple_problem.project_onto_trajectory(observed);
                     }
 
-                    sp.solve();
+                    simple_problem.solve();
 
-                    if(sp.best.action == 1){
+                    if(simple_problem.best.action == 1){
                         break;
                     }
                 }
-                sp.best.expected_utility = -10;
-                sp.row = 1;
+                simple_problem.best.expected_utility = -10;
+                simple_problem.row = 1;
             }
             else
             {
@@ -80,7 +80,7 @@ class DecisionNode{
 
             ROS_INFO("excecution time: %f", excecution_time);
 
-            response.decision.data = sp.best.action;
+            response.decision.data = simple_problem.best.action;
 
             return true;
         }

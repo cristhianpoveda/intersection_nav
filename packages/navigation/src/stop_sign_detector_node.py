@@ -25,7 +25,6 @@ class StopSignDetector(DTROS):
         self.red_upper_2 = rospy.get_param('~red_upper_2')
         self._detection_distance = rospy.get_param('~detection_distance')
         self._stop_distance = rospy.get_param('~stop_distance')
-        self._calculation_rate = rospy.get_param('~calculation_rate')
         self.lane_width = rospy.get_param('~lane_width')
         self.fx = rospy.get_param('~fx')
         self.fy = rospy.get_param('~fy')
@@ -41,6 +40,10 @@ class StopSignDetector(DTROS):
 
         self.K = np.array([[self.fx,0.0,self.cx],[0.0,self.fy,self.cy],[0.0,0.0,1.0]])
         self.D=np.array([[self.k1],[self.k2],[self.k3],[self.k4]])
+
+        self.newmatrix, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (self.img_w,self.img_h), 1, (self.img_w,self.img_h))
+
+        self.x_r, self.y_r, self.w_r, self.h_r = roi
 
         self.focal = np.sqrt(np.power(self.fx, 2) + np.power(self.fy, 2)) / 2
         
@@ -67,26 +70,22 @@ class StopSignDetector(DTROS):
         self.sub = rospy.Subscriber('/duckiebot4/camera_node/image/compressed', CompressedImage, self.camera, queue_size=1)
 
     def undistort(self, img):
-
-        h, w = img.shape[0:2]
-        newmatrix, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (w,h), 1, (w,h))
-        undistorted_img = cv2.undistort(img, self.K, self.D, None, newmatrix)
-        x_r, y_r, w_r, h_r = roi
-        undistorted_img = undistorted_img[y_r:y_r+h_r, x_r:x_r+w_r]
-        resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_NEAREST)
+        
+        undistorted_img = cv2.undistort(img, self.K, self.D, None, self.newmatrix)
+        undistorted_img = undistorted_img[self.y_r:self.y_r+self.h_r, self.x_r:self.x_r+self.w_r]
+        resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_LINEAR)
         return resized_img
 
     def srv_stop(self, req=None):
         
         distance_base = self._detection_distance
-        rate = rospy.Rate(self._calculation_rate)
         x,y,w,h = 1,1,2,2
         
         while not self.stop:
 
             start = rospy.get_rostime()
 
-            undistorted_img = self.undistort(self.image_np)  
+            undistorted_img = self.undistort(self.image_np)
 
             # hsv image
             imghsv = cv2.cvtColor(undistorted_img, cv2.COLOR_BGR2HSV)
@@ -146,8 +145,6 @@ class StopSignDetector(DTROS):
                     self.pub_center.publish(self.bridge.cv2_to_compressed_imgmsg(image_center, "jpeg"))
                 except CvBridgeError as e:
                     print(e)
-
-            rate.sleep()
 
         rospy.loginfo("Duckiebot stopped at: %f m from stop line.", distance_base)
 

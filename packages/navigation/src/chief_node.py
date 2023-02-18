@@ -8,10 +8,9 @@ from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDe
 from duckietown_msgs.srv import SetValue, SetValueRequest
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, MoveBaseFeedback
 from duckietown_msgs.msg import FSMState
-from geometry_msgs.msg import PoseWithCovarianceStamped
-from robot_localization.srv import SetPose, SetPoseRequest
+from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 
-class CoordinatorNode(DTROS):
+class ChiefNode(DTROS):
     # create messages that are used to publish feedback/result
     _feedback = intersection_msgs.msg.IntersectionDrivingFeedback()
     _result = intersection_msgs.msg.IntersectionDrivingResult()
@@ -33,8 +32,28 @@ class CoordinatorNode(DTROS):
     def feedback_callback(self, feedback):
         rospy.loginfo('[Feedback] Going to goal pose')
 
+    def call_swicth_srv(self, srv_name, state):
 
-      
+        switch_response = SetBoolResponse()
+
+        rospy.wait_for_service(srv_name)
+        try:
+            switch_node = SetBoolRequest()
+            switch_node.data = state
+            switch_client = rospy.ServiceProxy(srv_name, SetBool)
+            switch_response = switch_client()
+
+        except rospy.ServiceException as e:
+            rospy.loginfo("Failed to switch [%s] on: [%s]"% (srv_name, e))
+            switch_response.success = False
+
+        return switch_response
+
+    def fail_msg(self):
+        self._result.result = "Intersection driving failed"
+        rospy.loginfo('%s: Failed' % self._action_name)
+        self._as.set_succeeded(self._result)
+
     def execute_cb(self, goal):
         # helper variables
         success = False
@@ -42,6 +61,13 @@ class CoordinatorNode(DTROS):
         # start information
         rospy.loginfo('%s: Executing action: Navigate to destination: %s .' % (self._action_name, goal.destination))
 
+        # SWITCH STOP SIGN DETECTION ON
+
+        switch_response = self.call_swicth_srv('/duckiebot4/stop_sign_detector_node/switch', True)
+
+        if not switch_response.success:
+            self.fail_msg()
+            return
 
         # ARRIVE AT STOP SIGN
 
@@ -49,12 +75,31 @@ class CoordinatorNode(DTROS):
         try:
             arr = rospy.ServiceProxy('/duckiebot4/stop_sign_detector_node/detect_stop_sign', DetectStopSign)
             arrived_response = arr()
+
+            # 1st task feedback
+            self._feedback.tasks = "Arrived at intersection"
+            self._as.publish_feedback(self._feedback)
+
         except rospy.ServiceException as e:
             rospy.loginfo("Arrive at stop sign service call failed: %s"%e)
-        
-        # 1st task feedback
-        self._feedback.tasks = "Arrived at intersection"
-        self._as.publish_feedback(self._feedback)
+            self.fail_msg()
+            return
+
+        # SWITCH STOP SIGN DETECTION OFF
+
+        switch_response = self.call_swicth_srv('/duckiebot4/stop_sign_detector_node/switch', False)
+
+        if not switch_response.success:
+            self.fail_msg()
+            return
+
+        # SWITCH OBJECT DETECTION ON
+
+        switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', True)
+
+        if not switch_response.success:
+            self.fail_msg()
+            return
 
 
         # UPDATE DUCKIEBOT POSE ON MAP
@@ -65,12 +110,15 @@ class CoordinatorNode(DTROS):
             actual_pose.value = - arrived_response.distance.data
             pose = rospy.ServiceProxy('/duckiebot4/velocity_to_pose_node/update_pose', SetValue)
             pose()
+
+            # 2nd task feedback
+            self._feedback.tasks = "Duckiebot located on intersection map"
+            self._as.publish_feedback(self._feedback)
+
         except rospy.ServiceException as e:
             rospy.loginfo("Set Pose service call failed: %s"%e)
-        
-        # 2nd task feedback
-        self._feedback.tasks = "Duckiebot located on intersection map"
-        self._as.publish_feedback(self._feedback)
+            self.fail_msg()
+            return
 
 
         # MAKE DECISION
@@ -80,24 +128,53 @@ class CoordinatorNode(DTROS):
         try:
             inf = rospy.ServiceProxy('/srv_decision', MakeDecision)
             decision_resp = inf(goal.destination, arrived_response.distance.data)
+
+            # 3rd task feedback
+            self._feedback.tasks = decision_resp.decision.data
+            self._as.publish_feedback(self._feedback)
+
+            decision = decision_resp.decision.data
+
         except rospy.ServiceException as e:
-            rospy.loginfo("Arrive at stop sign service call failed: %s"%e)
-        
-        # 3rd task feedback
-        self._feedback.tasks = decision_resp.decision.data
-        self._as.publish_feedback(self._feedback)
+            rospy.loginfo("Decision making service call failed: %s"%e)
+            self.fail_msg()
+            return
 
-        decision = decision_resp.decision.data
+        # SWITCH OBJECT DETECTION OFF
 
-        if decision == 0:
+        switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', False)
 
+        if not switch_response.success:
+            self.fail_msg()
+            return
+
+        # SWITCH LOCALIZATION ON
+
+        switch_response = self.call_swicth_srv('/duckiebot4/forward_kinematics_node/switch', True)
+
+        if not switch_response.success:
+            self.fail_msg()
+            return
+
+        # CHANGE FINITE STATE MACHINE TO INTERSECTION CONTROL
+
+        state_nav = FSMState()
+        state_nav.state = "INTERSECTION_CONTROL"
+        self.pub_state.publish(state_nav)
+
+        # NAVIGATE
+
+        if decision == 1:
+
+            # Decision feedback
+            self._feedback.tasks = "Action: wait"
+            self._as.publish_feedback(self._feedback)
+            success = True
+
+        else:
             # Decision feedback
             self._feedback.tasks = "Aciton: cross"
             self._as.publish_feedback(self._feedback)
-
-            state_nav = FSMState()
-            state_nav.state = "INTERSECTION_CONTROL"
-            self.pub_state.publish(state_nav)
 
             # SET NAVIGATION GOAL
 
@@ -139,16 +216,11 @@ class CoordinatorNode(DTROS):
 
             rospy.loginfo('[Result] State: %d'% (client.get_state()))
 
-        else:
-            # decision feedback
-            self._feedback.tasks = "Action: wait"
-            self._as.publish_feedback(self._feedback)
+            success = True
 
         state_end = FSMState()
         state_end.state = "NORMAL_JOYSTICK_CONTROL"
         self.pub_state.publish(state_end)
-
-        success = True
           
         if success:
             self._result.result = "Intersection driving finished"
@@ -156,5 +228,5 @@ class CoordinatorNode(DTROS):
             self._as.set_succeeded(self._result)
         
 if __name__ == '__main__':
-    node = CoordinatorNode(node_name='coordinator_node')
+    node = ChiefNode(node_name='chief_node')
     rospy.spin()

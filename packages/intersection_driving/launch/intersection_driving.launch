@@ -12,11 +12,6 @@
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
-    <!-- Localization node (Odom -> Map transform) -->
-    <include file="$(find navigation)/launch/odom_to_map_node.launch">
-        <arg name="veh" value="$(arg veh)"/>
-    </include>
-
     <!-- Navigation nodes: map_server, move_base -->
     <include file="$(find navigation)/launch/navigation_nodes.launch" />
 

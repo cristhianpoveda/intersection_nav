@@ -57,6 +57,10 @@ class ObjectDetector(DTROS):
         self.K = np.array([[self.fx,0.0,self.cx],[0.0,self.fy,self.cy],[0.0,0.0,1.0]])
         self.D=np.array([[self.k1],[self.k2],[self.k3],[self.k4]])
 
+        self.newmatrix, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (self.img_w,self.img_h), 1, (self.img_w,self.img_h))
+
+        self.x_r, self.y_r, self.w_r, self.h_r = roi
+
         self.focal = np.sqrt(np.power(self.fx, 2) + np.power(self.fy, 2)) / 2
         self.angle_constant = self.hfov / self.img_w
 
@@ -79,13 +83,9 @@ class ObjectDetector(DTROS):
 
     def undistort(self, img):
 
-        h, w = img.shape[0:2]
-        newmatrix, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (w,h), 1, (w,h))
-        undistorted_img = cv2.undistort(img, self.K, self.D, None, newmatrix)
-        x_r, y_r, w_r, h_r = roi
-        undistorted_img = undistorted_img[y_r:y_r+h_r, x_r:x_r+w_r]
-        resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_NEAREST)
-
+        undistorted_img = cv2.undistort(img, self.K, self.D, None, self.newmatrix)
+        undistorted_img = undistorted_img[self.y_r:self.y_r+self.h_r, self.x_r:self.x_r+self.w_r]
+        resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_LINEAR)
         return resized_img
 
     def coordinates(self, ymax, ymin, xmax, xmin, h, scale_coeficient):

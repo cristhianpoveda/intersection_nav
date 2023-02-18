@@ -1,8 +1,11 @@
 <?xml version="1.0"?>
 <launch>
   <!-- Run the map server -->
-  <arg name="map_file" default="$(find navigation)/map/navigation_map.yaml"/>
+  <arg name="map_file" default="$(find navigation)/map/dt_map.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+  <!-- Run the odom -> map transform publisher -->
+  <node name="odom_to_map_node" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0 map odom" />
 
   <!-- Create map from static ground truth-->
   <arg name="no_static_map" default="false"/>

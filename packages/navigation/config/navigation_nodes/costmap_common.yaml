@@ -15,7 +15,7 @@ static:
     subscribe_to_updates: true
 
 inflation:
-    inflation_radius: 0.1
+    inflation_radius: 0.095
 
 inflation_local:
     inflation_radius: 0.01
