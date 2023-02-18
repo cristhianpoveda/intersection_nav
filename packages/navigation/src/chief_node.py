@@ -218,6 +218,14 @@ class ChiefNode(DTROS):
 
             success = True
 
+        # SWITCH LOCALIZATION OFF
+
+        switch_response = self.call_swicth_srv('/duckiebot4/forward_kinematics_node/switch', False)
+
+        if not switch_response.success:
+            self.fail_msg()
+            return
+
         state_end = FSMState()
         state_end.state = "NORMAL_JOYSTICK_CONTROL"
         self.pub_state.publish(state_end)
