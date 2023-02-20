@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <geometry_msgs/point.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
@@ -13,6 +14,7 @@ class DecisionNode{
     ros::NodeHandle nh;
     ros::ServiceServer srv_decision;
     ros::ServiceClient client;
+    ros::Publisher pub_pos;
 
     public:
         DecisionNode()
@@ -20,6 +22,7 @@ class DecisionNode{
         {
             srv_decision = nh.advertiseService("/srv_decision", &DecisionNode::srv_callback, this);
             client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/runtime_detector/detect_users");
+            pub_pos = nh.advertise<std_msgs::Point>("/duckiebot4/decision_making_node/debug/projected_pos", 1);
         }
 
         SimpleProblem simple_problem;
@@ -58,6 +61,15 @@ class DecisionNode{
                         simple_problem.get_duckie_group(observed);
                     }else{
                         simple_problem.project_onto_trajectory(observed);
+                    }
+
+                    if (ros::Publisher::getNumSubscribers() > 0){
+
+                        std_msgs::Point pos;
+                        pos.x = simple_problem.observation.position_coor.x;
+                        pos.y = simple_problem.observation.position_coor.y;
+
+                        pub_pos.publish(pos);
                     }
 
                     simple_problem.solve();
