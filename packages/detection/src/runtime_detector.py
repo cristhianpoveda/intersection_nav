@@ -72,11 +72,11 @@ class ObjectDetector(DTROS):
         self.bridge = CvBridge()
 
         # publisher (edited image)
-        self.pub_detections = rospy.Publisher('~detections', Image, queue_size=1)
+        self.pub_detections = rospy.Publisher('~detections', Image, queue_size=0)
 
-        self.pub_time_ann = rospy.Publisher('~debug/inference_time', Float32, queue_size=1)
+        self.pub_time_ann = rospy.Publisher('~debug/inference_time', Float32, queue_size=0)
 
-        self.pub_time_proj = rospy.Publisher('~debug/projection_time', Float32, queue_size=1)
+        self.pub_time_proj = rospy.Publisher('~debug/projection_time', Float32, queue_size=0)
 
         # subscriber to camera_node/image/compressed
         self.sub = rospy.Subscriber('/duckiebot4/camera_node/image/compressed', CompressedImage, self.camera, queue_size=1)
@@ -134,8 +134,7 @@ class ObjectDetector(DTROS):
 
         if self.pub_time_ann.anybody_listening():
 
-            time_msg = inference_time
-            self.pub_time_ann.publish(time_msg)
+            self.pub_time_ann.publish(inference_time)
 
         # Retrieve detection results
         boxes = self.interpreter.get_tensor(self.output_details[self.boxes_idx]['index'])[0] # Bounding box coordinates of detected objects
@@ -189,8 +188,7 @@ class ObjectDetector(DTROS):
 
                 if self.pub_time_proj.anybody_listening():
 
-                    time_msg_proj = projection_time
-                    self.pub_time_proj.publish(time_msg_proj)
+                    self.pub_time_proj.publish(projection_time)
 
         print(detections)
 

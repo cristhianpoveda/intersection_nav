@@ -117,8 +117,7 @@ class StopSignDetector(DTROS):
 
                 if self.pub_time.anybody_listening():
 
-                    time_msg = time_t
-                    self.pub_time.publish(time_msg)
+                    self.pub_time.publish(time_t)
 
                 if distance_base < self._stop_distance:
                     # pub FSM state to stop

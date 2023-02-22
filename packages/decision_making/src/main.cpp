@@ -1,11 +1,6 @@
 #include <ros/ros.h>
-#include <geometry_msgs/point.h>
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <std_msgs/Int16MultiArray.h>
+#include <std_msgs/Float32.h>
+#include <geometry_msgs/Point32.h>
 #include <intersection_msgs/MakeDecision.h>
 #include <intersection_msgs/DetectUsers.h>
 #include "simple_problem.h"
@@ -15,6 +10,8 @@ class DecisionNode{
     ros::ServiceServer srv_decision;
     ros::ServiceClient client;
     ros::Publisher pub_pos;
+    ros::Publisher pub_g_pos;
+    ros::Publisher pub_time;
 
     public:
         DecisionNode()
@@ -22,7 +19,9 @@ class DecisionNode{
         {
             srv_decision = nh.advertiseService("/srv_decision", &DecisionNode::srv_callback, this);
             client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/runtime_detector/detect_users");
-            pub_pos = nh.advertise<std_msgs::Point>("/duckiebot4/decision_making_node/debug/projected_pos", 1);
+            pub_pos = nh.advertise<geometry_msgs::Point32>("/duckiebot4/decision_making_node/debug/projected_pos", 0);
+            pub_g_pos = nh.advertise<geometry_msgs::Point32>("/duckiebot4/decision_making_node/debug/projected_geo", 0);
+            pub_time = nh.advertise<std_msgs::Float32>("/duckiebot4/decision_making_node/debug/calculation_time", 0);
         }
 
         SimpleProblem simple_problem;
@@ -30,18 +29,18 @@ class DecisionNode{
         bool srv_callback(intersection_msgs::MakeDecisionRequest &request,
                           intersection_msgs::MakeDecisionResponse &response){
 
-            ros::WallTime start_time, end_time;
-            start_time = ros::WallTime::now();
-
             simple_problem.destination = request.destination.data;
             simple_problem.best.action = 0;            
 
             int num_of_detections = 0, idx, class_idx, x_idx, y_idx;
+            float excecution_time;
 
             intersection_msgs::DetectUsers detection_service;
             if (client.call(detection_service))
             {
-                ROS_INFO("detection succeded");
+                ros::WallTime start_time, end_time;
+                start_time = ros::WallTime::now();
+
                 num_of_detections = detection_service.response.detections.layout.data_offset;
                 for(int i = 0; i < num_of_detections; i++){
 
@@ -54,8 +53,14 @@ class DecisionNode{
                     observed.x = detection_service.response.detections.data[x_idx] - request.stop_dist.data;
                     observed.y = detection_service.response.detections.data[y_idx];
 
-                    ROS_INFO("x_p: %f", observed.x);
-                    ROS_INFO("y_p: %f", observed.y);
+                    if (pub_g_pos.getNumSubscribers() > 0){
+
+                        geometry_msgs::Point32 g_pos;
+                        g_pos.x = observed.x;
+                        g_pos.y = observed.y;
+
+                        pub_g_pos.publish(g_pos);
+                    }
 
                     if(simple_problem.observation.user == 1){
                         simple_problem.get_duckie_group(observed);
@@ -63,9 +68,9 @@ class DecisionNode{
                         simple_problem.project_onto_trajectory(observed);
                     }
 
-                    if (ros::Publisher::getNumSubscribers() > 0){
+                    if (pub_pos.getNumSubscribers() > 0){
 
-                        std_msgs::Point pos;
+                        geometry_msgs::Point32 pos;
                         pos.x = simple_problem.observation.position_coor.x;
                         pos.y = simple_problem.observation.position_coor.y;
 
@@ -80,6 +85,8 @@ class DecisionNode{
                 }
                 simple_problem.best.expected_utility = -10;
                 simple_problem.row = 1;
+                end_time = ros::WallTime::now();
+                excecution_time = (end_time - start_time).toNSec() * 1e-6;
             }
             else
             {
@@ -87,10 +94,13 @@ class DecisionNode{
                 return 1;
             }
 
-            end_time = ros::WallTime::now();
-            float excecution_time = (end_time - start_time).toNSec() * 1e-6;
+            if (pub_time.getNumSubscribers() > 0){
 
-            ROS_INFO("excecution time: %f", excecution_time);
+                std_msgs::Float32 calculation_time;
+                calculation_time.data = excecution_time;
+
+                pub_time.publish(calculation_time);
+            }
 
             response.decision.data = simple_problem.best.action;
 

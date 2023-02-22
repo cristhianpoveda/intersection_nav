@@ -4,9 +4,7 @@ project(decision_making)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
-  sensor_msgs
-  cv_bridge
-  image_transport
+  geometry_msgs
   intersection_msgs
 )
 
@@ -15,9 +13,7 @@ catkin_package(
     CATKIN_DEPENDS
     roscpp
     std_msgs
-    sensor_msgs
-    cv_bridge
-    image_transport
+    geometry_msgs
     intersection_msgs
 )
 

@@ -1,13 +1,15 @@
 #! /usr/bin/env python3
 
+import time
 import rospy
 import actionlib
 from duckietown.dtros import DTROS, NodeType
 import intersection_msgs.msg
-from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDecision, MakeDecisionResponse
+from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDecision, MakeDecisionRequest
 from duckietown_msgs.srv import SetValue, SetValueRequest
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, MoveBaseFeedback
 from duckietown_msgs.msg import FSMState
+from std_msgs.msg import Float32
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 
 class ChiefNode(DTROS):
@@ -16,7 +18,7 @@ class ChiefNode(DTROS):
     _result = intersection_msgs.msg.IntersectionDrivingResult()
 
     def __init__(self, node_name):
-        super(CoordinatorNode, self).__init__(node_name=node_name, node_type=NodeType.BEHAVIOR)
+        super(ChiefNode, self).__init__(node_name=node_name, node_type=NodeType.BEHAVIOR)
 
         # params
         self._way1 = rospy.get_param('~way1')
@@ -24,6 +26,7 @@ class ChiefNode(DTROS):
         self._way3 = rospy.get_param('~way3')
         
         self.pub_state = rospy.Publisher('/duckiebot4/fsm_node/mode', FSMState, queue_size=1)
+        self.pub_time = rospy.Publisher('~debug/calculation_time', Float32, queue_size=0)
 
         self._action_name = node_name
         self._as = actionlib.SimpleActionServer(self._action_name, intersection_msgs.msg.IntersectionDrivingAction, execute_cb=self.execute_cb, auto_start = False)
@@ -38,10 +41,10 @@ class ChiefNode(DTROS):
 
         rospy.wait_for_service(srv_name)
         try:
-            switch_node = SetBoolRequest()
-            switch_node.data = state
+            switch_request = SetBoolRequest()
+            switch_request.data = state
             switch_client = rospy.ServiceProxy(srv_name, SetBool)
-            switch_response = switch_client()
+            switch_response = switch_client(switch_request)
 
         except rospy.ServiceException as e:
             rospy.loginfo("Failed to switch [%s] on: [%s]"% (srv_name, e))
@@ -59,31 +62,33 @@ class ChiefNode(DTROS):
         success = False
         
         # start information
-        rospy.loginfo('%s: Executing action: Navigate to destination: %s .' % (self._action_name, goal.destination))
+        rospy.loginfo('%s: Executing action: Navigate to destination: %s .' % (self._action_name, goal.destination.data))
 
-        # SWITCH STOP SIGN DETECTION ON
+        # # SWITCH STOP SIGN DETECTION ON
 
-        switch_response = self.call_swicth_srv('/duckiebot4/stop_sign_detector_node/switch', True)
+        # switch_response = self.call_swicth_srv('/duckiebot4/stop_sign_detector_node/switch', True)
 
-        if not switch_response.success:
-            self.fail_msg()
-            return
+        # if not switch_response.success:
+        #     self.fail_msg()
+        #     return
 
-        # ARRIVE AT STOP SIGN
+        # # ARRIVE AT STOP SIGN
 
-        rospy.wait_for_service('/duckiebot4/stop_sign_detector_node/detect_stop_sign')
-        try:
-            arr = rospy.ServiceProxy('/duckiebot4/stop_sign_detector_node/detect_stop_sign', DetectStopSign)
-            arrived_response = arr()
+        # rospy.wait_for_service('/duckiebot4/stop_sign_detector_node/detect_stop_sign')
+        # try:
+        #     arr = rospy.ServiceProxy('/duckiebot4/stop_sign_detector_node/detect_stop_sign', DetectStopSign)
+        #     arrived_response = arr()
 
-            # 1st task feedback
-            self._feedback.tasks = "Arrived at intersection"
-            self._as.publish_feedback(self._feedback)
+        #     # 1st task feedback
+        #     self._feedback.tasks = "Arrived at intersection"
+        #     self._as.publish_feedback(self._feedback)
 
-        except rospy.ServiceException as e:
-            rospy.loginfo("Arrive at stop sign service call failed: %s"%e)
-            self.fail_msg()
-            return
+        # except rospy.ServiceException as e:
+        #     rospy.loginfo("Arrive at stop sign service call failed: %s"%e)
+        #     self.fail_msg()
+        #     return
+
+        start = rospy.get_rostime()
 
         # SWITCH STOP SIGN DETECTION OFF
 
@@ -101,13 +106,12 @@ class ChiefNode(DTROS):
             self.fail_msg()
             return
 
-
         # UPDATE DUCKIEBOT POSE ON MAP
 
         rospy.wait_for_service('/duckiebot4/velocity_to_pose_node/update_pose')
         try:
             actual_pose = SetValueRequest()
-            actual_pose.value = - arrived_response.distance.data
+            actual_pose.value = - 0.2
             pose = rospy.ServiceProxy('/duckiebot4/velocity_to_pose_node/update_pose', SetValue)
             pose()
 
@@ -120,14 +124,18 @@ class ChiefNode(DTROS):
             self.fail_msg()
             return
 
+        time.sleep(0.1)
 
         # MAKE DECISION
         decision = 1
 
         rospy.wait_for_service('/srv_decision')
         try:
+            destination_request = MakeDecisionRequest()
+            destination_request.destination.data = goal.destination.data
+            destination_request.stop_dist.data = 0.2
             inf = rospy.ServiceProxy('/srv_decision', MakeDecision)
-            decision_resp = inf(goal.destination, arrived_response.distance.data)
+            decision_resp = inf(destination_request)
 
             # 3rd task feedback
             self._feedback.tasks = decision_resp.decision.data
@@ -162,61 +170,72 @@ class ChiefNode(DTROS):
         state_nav.state = "INTERSECTION_CONTROL"
         self.pub_state.publish(state_nav)
 
-        # NAVIGATE
+        end = rospy.get_rostime()
+        time_t = (end - start).to_sec()
 
-        if decision == 1:
+        if self.pub_time.anybody_listening():
 
-            # Decision feedback
-            self._feedback.tasks = "Action: wait"
-            self._as.publish_feedback(self._feedback)
-            success = True
+            self.pub_time.publish(time_t)
 
-        else:
-            # Decision feedback
-            self._feedback.tasks = "Aciton: cross"
-            self._as.publish_feedback(self._feedback)
+        rospy.loginfo(decision)
 
-            # SET NAVIGATION GOAL
+        success = True
 
-            if goal.destination == "way1":
-                x = self._way1.x
-                y = self._way1.r
-                rz = self._way1.rz
-                rw = self._way1.rw
+        # # NAVIGATE
 
-            elif goal.destination == "way2":
-                x = self._way2.x
-                y = self._way2.r
-                rz = self._way2.rz
-                rw = self._way2.rw
+        # if decision == 1:
 
-            elif goal.destination == "way3":
-                x = self._way3.x
-                y = self._way3.r
-                rz = self._way3.rz
-                rw = self._way3.rw
+        #     # Decision feedback
+        #     self._feedback.tasks = "Action: wait"
+        #     self._as.publish_feedback(self._feedback)
+        #     success = True
 
-            nav_goal = MoveBaseGoal()
-            nav_goal.target_pose.header.frame_id = 'map'
-            nav_goal.target_pose.pose.position.x = x
-            nav_goal.target_pose.pose.position.y = y
-            nav_goal.target_pose.pose.position.z = 0.0
-            nav_goal.target_pose.pose.orientation.x = 0.0
-            nav_goal.target_pose.pose.orientation.y = 0.0
-            nav_goal.target_pose.pose.orientation.z = rz
-            nav_goal.target_pose.pose.orientation.w = rw
+        # else:
+        #     # Decision feedback
+        #     self._feedback.tasks = "Aciton: cross"
+        #     self._as.publish_feedback(self._feedback)
 
-            client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
+        #     # SET NAVIGATION GOAL
 
-            client.wait_for_server()
+        #     if goal.destination.data == "1":
+        #         x = self._way1.x
+        #         y = self._way1.r
+        #         rz = self._way1.rz
+        #         rw = self._way1.rw
 
-            client.send_goal(nav_goal, feedback_cb = self.feedback_callback)
+        #     elif goal.destination.data == "2":
+        #         x = self._way2.x
+        #         y = self._way2.r
+        #         rz = self._way2.rz
+        #         rw = self._way2.rw
 
-            client.wait_for_result()
+        #     elif goal.destination.data == "3":
+        #         x = self._way3.x
+        #         y = self._way3.r
+        #         rz = self._way3.rz
+        #         rw = self._way3.rw
 
-            rospy.loginfo('[Result] State: %d'% (client.get_state()))
+        #     nav_goal = MoveBaseGoal()
+        #     nav_goal.target_pose.header.frame_id = 'map'
+        #     nav_goal.target_pose.pose.position.x = x
+        #     nav_goal.target_pose.pose.position.y = y
+        #     nav_goal.target_pose.pose.position.z = 0.0
+        #     nav_goal.target_pose.pose.orientation.x = 0.0
+        #     nav_goal.target_pose.pose.orientation.y = 0.0
+        #     nav_goal.target_pose.pose.orientation.z = rz
+        #     nav_goal.target_pose.pose.orientation.w = rw
 
-            success = True
+        #     client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
+
+        #     client.wait_for_server()
+
+        #     client.send_goal(nav_goal, feedback_cb = self.feedback_callback)
+
+        #     client.wait_for_result()
+
+        #     rospy.loginfo('[Result] State: %d'% (client.get_state()))
+
+        #     success = True
 
         # SWITCH LOCALIZATION OFF
 
