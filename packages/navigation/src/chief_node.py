@@ -92,19 +92,19 @@ class ChiefNode(DTROS):
 
         # SWITCH STOP SIGN DETECTION OFF
 
-        switch_response = self.call_swicth_srv('/duckiebot4/stop_sign_detector_node/switch', False)
+        # switch_response = self.call_swicth_srv('/duckiebot4/stop_sign_detector_node/switch', False)
 
-        if not switch_response.success:
-            self.fail_msg()
-            return
+        # if not switch_response.success:
+        #     self.fail_msg()
+        #     return
 
         # SWITCH OBJECT DETECTION ON
 
-        switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', True)
+        # switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', True)
 
-        if not switch_response.success:
-            self.fail_msg()
-            return
+        # if not switch_response.success:
+        #     self.fail_msg()
+        #     return
 
         # UPDATE DUCKIEBOT POSE ON MAP
 
@@ -150,19 +150,19 @@ class ChiefNode(DTROS):
 
         # SWITCH OBJECT DETECTION OFF
 
-        switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', False)
+        # switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', False)
 
-        if not switch_response.success:
-            self.fail_msg()
-            return
+        # if not switch_response.success:
+        #     self.fail_msg()
+        #     return
 
-        # SWITCH LOCALIZATION ON
+        # # SWITCH LOCALIZATION ON
 
-        switch_response = self.call_swicth_srv('/duckiebot4/forward_kinematics_node/switch', True)
+        # switch_response = self.call_swicth_srv('/duckiebot4/forward_kinematics_node/switch', True)
 
-        if not switch_response.success:
-            self.fail_msg()
-            return
+        # if not switch_response.success:
+        #     self.fail_msg()
+        #     return
 
         # CHANGE FINITE STATE MACHINE TO INTERSECTION CONTROL
 
@@ -176,8 +176,6 @@ class ChiefNode(DTROS):
         if self.pub_time.anybody_listening():
 
             self.pub_time.publish(time_t)
-
-        rospy.loginfo(decision)
 
         success = True
 
@@ -239,11 +237,11 @@ class ChiefNode(DTROS):
 
         # SWITCH LOCALIZATION OFF
 
-        switch_response = self.call_swicth_srv('/duckiebot4/forward_kinematics_node/switch', False)
+        # switch_response = self.call_swicth_srv('/duckiebot4/forward_kinematics_node/switch', False)
 
-        if not switch_response.success:
-            self.fail_msg()
-            return
+        # if not switch_response.success:
+        #     self.fail_msg()
+        #     return
 
         state_end = FSMState()
         state_end.state = "NORMAL_JOYSTICK_CONTROL"

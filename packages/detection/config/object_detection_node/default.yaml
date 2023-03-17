@@ -1,6 +1,6 @@
 model_path: "/model/detection.tflite"
 labels: ["back", "duckie", "front"]
-threshold: 0.3
+threshold: 0.25
 
 fx: 330.68996032726204
 fy: 329.1513815365187
@@ -19,5 +19,7 @@ hfov: 130
 img_w: 640
 img_h: 480
 
-scale_db: 0.005
+scale_db: 0.003
 scale_d: 0.0027
+vehicle_depth: 0.08
+cam_to_base: 0.0582

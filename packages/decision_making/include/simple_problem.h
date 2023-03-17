@@ -10,29 +10,10 @@ class SimpleProblem{
             float y;
         };
 
-        struct Projected_point{
-            Point coordinates;
-            float projection_distance;
-        };
-
-        struct Trajectory_point{
-            float mean;
-            float projection_distance;
-            float reference;
-            float trajectory_lenght;
-        };
-
-        struct Projected_pos{
-            Point position;
-            Trajectory_point point;
-        };
-
-        struct Observation{
-            Point position_coor;
-            int user;
-            Trajectory_point point;
-            int trajectory_group;
-            float direction = 1;
+        struct Projection{
+            Point pos;
+            float distance;
+            int group;
         };
 
         struct Best{
@@ -45,7 +26,8 @@ class SimpleProblem{
         SimpleProblem();
 
         // evidence
-        Observation observation;
+
+        int user;
         
         // chance var (right of way)
         float row;
@@ -55,41 +37,63 @@ class SimpleProblem{
 
         int destination;
 
-        Point nearest_group;
+        Point projected_user;
 
-        void min_distance(Point projected_duckiebot, float (*ref_points)[3], int len);
+        Projection primary_projection;
 
-        Projected_point line_projection(float parallel_coor, float orthogonal_coor, float line_intercept);
+        Projection second_projection;
 
-        Projected_pos arc_projection(Point point_1, float h, float k, float r, float axis);
+        int new_project_to_crosswalk();
 
-        void get_duckie_group(SimpleProblem::Point D_observed);
+        int new_min_distance(float (*ref_points)[3]);
 
-        void project_onto_trajectory(SimpleProblem::Point DB_observed);
+        Projection new_line_projection(int idx);
 
-        float normal_dist(float x);
+        Projection new_arc_projection(int idx);
 
-        void joint_probability_distribution();
-        
-        void solve();
+        int new_project_to_trajectory();
+
+        float new_normal_dist(float mean, float x);
+
+        float new_bayesian_network(Projection projection);
+
+        void new_solve();
+
+
+        int solveMultivariate(SimpleProblem::Point observed_user);
 
     private:
         // header
-        float utilities[2][2] = {{0.9, -1}, {-0.1, 1}};
-        // x coordinate, y coordinate, direction along trajectory axis(positive = 1, negative = -1)
-        float front_ref_points[5][3] = {{0.375, -0.125, 1},
-                                            {0.5, 0.25, -1},
-                                            {0.125, 0.375, -1},
-                                            {0.0, 0.25, 1},
-                                            {0.125, 0.125, -1}};
+        float utilities[2][2] = {{-0.5, 1}, {0.3, -1}};
 
-        int len_front = 5;
+        float intersection_center[2] = {0.25, 0.125};
+
+        float intersection_limits[4] = {0, -0.125, 0.5, 0.375};
+
+        float crosswalk_axis[4] = {1, 0, 1, 0};
+
+        // x coordinate, y coordinate, direction along trajectory axis(positive = 1, negative = -1)
+        float front_ref_points[3][3] = {{0.375, -0.125, 1},
+                                        {0.5, 0.25, -1},
+                                        {0.125, 0.375, -1}};
 
         float back_ref_points[3][3] = {{0.125, -0.125, 1},
-                                            {0.5, 0.0, -1},
-                                            {0.375, 0.375, -1}};
+                                        {0.5, 0.0, -1},
+                                        {0.375, 0.375, -1}};
 
-        int len_back = 3;
+                                            // center; front; back; h / axis; k / b; r.
+        float intersection_trajectories[10][6] = {{1, 1, -1, 0, -0.125, 0.375},
+                                                 {1, 1, 2, 0.5, -0.125, 0.125},
+                                                 {0, 1, 3, 1, 0.375, 0},
+                                                 {0, 2, -1, 0, 0.25, 0},
+                                                 {1, 2, 1, 0.5, -0.125, 0.375},                                                 
+                                                 {1, 2, 3, 0.5, 0.375, 0.125},
+                                                 {1, 3, -1, 0, 0.375, 0.125},
+                                                 {0, 3, 1, 1, 0.125, 0},
+                                                 {1, 3, 2, 0.5, 0.375, 0.375},
+                                                 {1, -1, 2, 0, 0, 0}};
+
+                                                 // ADD LINE Y = 0
 
 };
 

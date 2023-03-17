@@ -41,6 +41,8 @@ class ObjectDetector(DTROS):
         self.img_h = rospy.get_param('~img_h')
         self.scale_db = rospy.get_param('~scale_db')
         self.scale_d = rospy.get_param('~scale_d')
+        self.vehicle_depth = rospy.get_param('~vehicle_depth')
+        self.cam_to_base = rospy.get_param('~cam_to_base')
 
         self.interpreter = tflite.Interpreter(model_path=self.model_path)
         
@@ -88,7 +90,7 @@ class ObjectDetector(DTROS):
         resized_img = cv2.resize(undistorted_img, (self.img_w, self.img_h), cv2.INTER_LINEAR)
         return resized_img
 
-    def coordinates(self, ymax, ymin, xmax, xmin, h, scale_coeficient):
+    def coordinates(self, ymax, ymin, xmax, xmin, h, scale_coeficient, detection_class):
 
         start_projection_time = rospy.get_rostime()
 
@@ -97,10 +99,13 @@ class ObjectDetector(DTROS):
 
         distance = scale_coeficient * abs(angle) + self.focal * h / (ymax - ymin)
 
+        if(detection_class != 1):
+            distance += self.vehicle_depth
+
         rospy.loginfo("angle: %f", angle)
         rospy.loginfo("distance: %f", distance)
 
-        pos_x = 0.0582 + distance * np.cos(angle_rads)
+        pos_x = self.cam_to_base + distance * np.cos(angle_rads)
         pos_y = distance * np.sin(angle_rads)
 
         end_projection_time = rospy.get_rostime()
@@ -176,21 +181,19 @@ class ObjectDetector(DTROS):
                 detection_class = int(classes[i])
 
                 if(int(classes[i]) == 0):
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.back_h, self.scale_db)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.back_h, self.scale_db, detection_class)
 
                 elif(int(classes[i]) == 1):
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h, self.scale_d)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h, self.scale_d, detection_class)
 
                 else:
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.front_h, self.scale_db)
+                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.front_h, self.scale_db, detection_class)
 
                 detections.extend([detection_class, pos_x, pos_y])
 
                 if self.pub_time_proj.anybody_listening():
 
                     self.pub_time_proj.publish(projection_time)
-
-        print(detections)
 
         out_buffer = DetectUsersResponse()
         out_buffer.detections.layout.data_offset = detection_num

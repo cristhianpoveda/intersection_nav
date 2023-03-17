@@ -14,6 +14,6 @@ dt-exec rosservice call /"$VEHICLE_NAME"/runtime_detector/switch False
 
 dt-exec rosservice call /"$VEHICLE_NAME"/forward_kinematics_node/switch False
 
-echo "Intersection navigation properly setup"
+echo "Setting up intersection navigation!"
 
 dt-launchfile-join

@@ -1,57 +1,124 @@
+#include <ros/ros.h>
 #include "simple_problem.h"
 #include "math.h"
 
 SimpleProblem::SimpleProblem(){
     row = 1;
     best.expected_utility = -10;
+    projected_user.x = 10;
+    projected_user.y = 10;
+    primary_projection.pos.x = 10;
+    primary_projection.pos.y = 10;
+    second_projection.pos.x = 10;
+    second_projection.pos.y = 10;
 }
 
 // member functions
 
-void SimpleProblem::min_distance(Point projected_duckiebot, float (*ref_points)[3], int len){
+int SimpleProblem::new_project_to_crosswalk(){
 
-    float min_distance = 1, distance;
-    observation.trajectory_group = 0;
+    float min_projection_distance = 11, duckie_distance_th = 0.086;
+    int probable_projections = 0;
 
-    for(int i = 0; i < len; i++){
-    
-        distance = sqrt(pow((ref_points[i][0] - projected_duckiebot.x), 2) + pow((ref_points[i][1] - projected_duckiebot.y), 2));
-    
-        if(distance < min_distance){
-            min_distance = distance;
-            observation.trajectory_group = i;
-            nearest_group.x = ref_points[i][0];
-            nearest_group.y = ref_points[i][1];
-            observation.direction = ref_points[i][2];
+    SimpleProblem::Projection projection;
+    projection.distance = 10;
+    primary_projection.pos.x = 10;
+    primary_projection.pos.y = 10;
+    primary_projection.distance = 10;
+    second_projection.pos.x = 10;
+    second_projection.pos.y = 10;
+    second_projection.distance = 10;
+
+    for(int i = 0; i < 4; i++){
+
+        if(crosswalk_axis[i] == 0){
+
+            projection.pos.x = projected_user.x;
+            projection.pos.y = intersection_limits[i];
+            projection.distance = abs(intersection_limits[i] - projected_user.y);
+            projection.group = i;
+
+        }else{
+
+            projection.pos.x = intersection_limits[i];
+            projection.pos.y = projected_user.y;
+            projection.distance = abs(intersection_limits[i] - projected_user.x);
+            projection.group = i;
+        }
+
+        if(projection.distance < min_projection_distance && projection.distance < duckie_distance_th){
+
+            ROS_INFO("Assign duckie projection");
+
+            if(projection.distance < primary_projection.distance){
+                second_projection = primary_projection;
+                primary_projection = projection;
+            }else{
+                second_projection = projection;
+            }
+
+            min_projection_distance = second_projection.distance;
+            probable_projections++;
+
         }
     }
+
+    return probable_projections;
 }
 
-// geometrical projections
-SimpleProblem::Projected_point SimpleProblem::line_projection(float parallel_coor, float orthogonal_coor, float line_intercept){
+int SimpleProblem::new_min_distance(float (*ref_points)[3]){
 
-    Projected_point Pp;
+    float min_distance = 0, distance = 0;
+    int group = 0;
 
-    Pp.coordinates.x = parallel_coor;
-    Pp.coordinates.y = line_intercept;
-    Pp.projection_distance = abs(orthogonal_coor - line_intercept);
+    min_distance = sqrt(pow((intersection_center[0] - projected_user.x), 2)
+                        + pow((intersection_center[1] - projected_user.y), 2));
 
-    return Pp;
+    for(int i = 0; i < 3; i++){
+        distance = sqrt(pow((ref_points[i][0] - projected_user.x), 2)
+                      + pow((ref_points[i][1] - projected_user.y), 2));
+
+        if(distance < min_distance){
+            min_distance = distance;
+            group = i + 1;
+        }
+    }
+
+    return group;
 }
 
-SimpleProblem::Projected_pos SimpleProblem::arc_projection(Point point_1, float h, float k, float r, float axis){
+SimpleProblem::Projection SimpleProblem::new_line_projection(int idx){
 
-    Projected_pos Pp;
+    SimpleProblem::Projection projection;
+    if(intersection_trajectories[idx][3] == 0){
 
-    float m = (point_1.y - k) / (point_1.x - h);
-    float b_line = -m * point_1.x + point_1.y;
+        projection.pos.x = projected_user.x;
+        projection.pos.y = intersection_trajectories[idx][4];
+        projection.distance = abs(intersection_trajectories[idx][4] - projected_user.y);
+
+    }else{
+        projection.pos.x = intersection_trajectories[idx][4];
+        projection.pos.y = projected_user.y;
+        projection.distance = abs(intersection_trajectories[idx][4] - projected_user.x);
+    }
+
+    return projection;
+    
+}
+
+SimpleProblem::Projection SimpleProblem::new_arc_projection(int idx){
+
+    SimpleProblem::Projection projection;
+
+    float m = (projected_user.y - intersection_trajectories[idx][4]) / (projected_user.x - intersection_trajectories[idx][3]);
+    float b_line = -m * projected_user.x + projected_user.y;
 
     // solve quadratic eq
 
     // because of + 1 in "a" calculation, there is never a discontinuity for the quadratic equation.
     float a = pow(m, 2) + 1;
-    float b_quad_eq = 2 * m * (b_line - k) - 2 * h;
-    float c = pow((b_line - k),2) - pow(r, 2) + pow(h, 2);
+    float b_quad_eq = 2 * m * (b_line - intersection_trajectories[idx][4]) - 2 * intersection_trajectories[idx][3];
+    float c = pow((b_line - intersection_trajectories[idx][4]),2) - pow(intersection_trajectories[idx][5], 2) + pow(intersection_trajectories[idx][3], 2);
 
     float x1 = (- b_quad_eq + sqrt(pow(b_quad_eq, 2) - 4 * a * c)) / (2 * a);
     float x2 = (- b_quad_eq - sqrt(pow(b_quad_eq, 2) - 4 * a * c)) / (2 * a);
@@ -60,236 +127,178 @@ SimpleProblem::Projected_pos SimpleProblem::arc_projection(Point point_1, float 
     float y2 = m * x2 + b_line;
 
     // find projected distance
-    float proj_distance_1 = sqrt(pow((x1 - point_1.x), 2) + pow((y1 - point_1.y), 2));
-    float proj_distance_2 = sqrt(pow((x2 - point_1.x), 2) + pow((y2 - point_1.y), 2));
+    float proj_distance_1 = sqrt(pow((x1 - projected_user.x), 2) + pow((y1 - projected_user.y), 2));
+    float proj_distance_2 = sqrt(pow((x2 - projected_user.x), 2) + pow((y2 - projected_user.y), 2));
 
     if(proj_distance_1 < proj_distance_2){
 
-        Pp.position.x = x1;
-        Pp.position.y = y1;
-        Pp.point.projection_distance = proj_distance_1;
+        projection.pos.x = x1;
+        projection.pos.y = y1;
+        projection.distance = proj_distance_1;
 
     }else{
 
-        Pp.position.x = x2;
-        Pp.position.y = y2;
-        Pp.point.projection_distance = proj_distance_2;
+        projection.pos.x = x2;
+        projection.pos.y = y2;
+        projection.distance = proj_distance_2;
 
     }
 
-    if(axis == 0){
-        Pp.point.mean = r * acos(abs(Pp.position.y - k) / r);
-    }else{
-        Pp.point.mean = r * acos(abs(Pp.position.x - h) / r);
-    }
-
-    return Pp;   
+    return projection;
 }
 
-// projection duckie
-void SimpleProblem::get_duckie_group(SimpleProblem::Point D_observed){
+int SimpleProblem::new_project_to_trajectory(){
 
-    // header
-    //0 axis, 1 m, 2 b, 3 len.
+    SimpleProblem::Projection projection;
+    projection.distance = 10;
+    primary_projection.pos.x = 10;
+    primary_projection.pos.y = 10;
+    primary_projection.distance = 10;
+    second_projection.pos.x = 10;
+    second_projection.pos.y = 10;
+    second_projection.distance = 10;
 
-    float ref_points_duckie[4][2] = {{0.0, 0.125},{0.25, -0.125},{0.5, 0.125},{0.25, 0.375}};
+    int idx = 0, probable_projections = 0, group = 0;
+    float min_projection_distance = 11, duckiebot_distance_th = 0.125;
+    
+    bool outside_projection = projected_user.x < intersection_limits[0] || projected_user.x > intersection_limits[2] ||
+                    projected_user.y < intersection_limits[1] || projected_user.y > intersection_limits[3];
 
-    float trajectories[4][4] = {{1, 0, 0, 0.5},
-                                {0, 0, -0.125, 0.5},
-                                {1, 0, 0.5, 0.5},
-                                {0, 0, 0.375, 0.5}};
+    if(user == 0){
+        group = new_min_distance(back_ref_points);
+        idx = 2;
+    }else{
+        group = new_min_distance(front_ref_points);
+        idx = 1;
+    }
 
-    observation.point.projection_distance = 1;
+    ROS_INFO("B primary x: %f", primary_projection.pos.x);
+    ROS_INFO("B primary y: %f", primary_projection.pos.y);
+    ROS_INFO("B primary distance: %f", primary_projection.distance);
+    ROS_INFO("B second x: %f", second_projection.pos.x);
+    ROS_INFO("B second y: %f", second_projection.pos.y);
+    ROS_INFO("B secondary distance: %f", second_projection.distance);
 
-    int num_of_trajectories = sizeof(trajectories) / sizeof(trajectories[0]);
-    float ref = 0, u = 0;
-
-    Projected_point Pp_line;
-    Projected_point Pp_line_corrected;
-
+    int num_of_trajectories = sizeof(intersection_trajectories) / sizeof(intersection_trajectories[0]);
+    
+    // change 9 by trajectory var
     for(int i = 0; i < num_of_trajectories; i++){
 
-        if(trajectories[i][0] == 0){
+        if((group == 0 && intersection_trajectories[i][0] == 1) ||
+            group == intersection_trajectories[i][idx]){
 
-            Pp_line = line_projection(D_observed.x, D_observed.y, trajectories[i][2]);
-            ref = ref_points_duckie[i][0];
-            u = Pp_line.coordinates.x;
+            ROS_INFO("FOR: %d", i);
+            ROS_INFO("index: %d", idx);
+            ROS_INFO("outside: %d", outside_projection);
 
-        }else{
+            if(intersection_trajectories[i][5] ==  0){
+                ROS_INFO("Line");
+                projection = new_line_projection(i);
+            }else if(!outside_projection){
+                ROS_INFO("Arc");
+                projection = new_arc_projection(i);
+            }
 
-            Pp_line_corrected = line_projection(D_observed.y, D_observed.x, trajectories[i][2]);
-            Pp_line.coordinates.x = Pp_line_corrected.coordinates.y;
-            Pp_line.coordinates.y = Pp_line_corrected.coordinates.x;
-            Pp_line.projection_distance = Pp_line_corrected.projection_distance;
-            ref = ref_points_duckie[i][1];
-            u = Pp_line.coordinates.y;
+            if(projection.distance < min_projection_distance && projection.distance < duckiebot_distance_th){
 
-        }
+                ROS_INFO("Assign projection");
 
-        if(Pp_line.projection_distance < observation.point.projection_distance){
-        
-            observation.position_coor = Pp_line.coordinates;
-            observation.point.projection_distance = Pp_line.projection_distance;
-            observation.point.mean = u;
-            observation.point.reference = ref;
-            observation.point.trajectory_lenght = trajectories[i][3];
-            observation.trajectory_group = i;
+                if(projection.distance < primary_projection.distance){
+                    second_projection = primary_projection;
+                    primary_projection = projection;
+                }else{
+                    second_projection = projection;
+                }
+
+                min_projection_distance = second_projection.distance;
+                probable_projections++;
+
+            }
+            ROS_INFO("primary x: %f", primary_projection.pos.x);
+            ROS_INFO("primary y: %f", primary_projection.pos.y);
+            ROS_INFO("B primary distance: %f", primary_projection.distance);
+            ROS_INFO("second x: %f", second_projection.pos.x);
+            ROS_INFO("second y: %f", second_projection.pos.y);
+            ROS_INFO("B secondary distance: %f", second_projection.distance);
 
         }
     }
 
+    primary_projection.group = group;
+    second_projection.group = group;
+
+    return probable_projections;
 }
 
-// projection duckiebot
-
-void SimpleProblem::project_onto_trajectory(SimpleProblem::Point DB_observed){
-
-    // Parallel axis, intersection limit, right arc, line, left arc.
-    // 0 axis, 1 min limit, 2 max limit, 3:5(h1, k1, r1) 6 len, 7:8(m, b) 9 len, 10:12(h2, k2, r2) 13 len.
-    // axis: x = 0, y = 1.
-    // limit: not considered = -1.
-
-    float trajectories[8][14] = {{1, -0.125, 1, 0.5, -0.125, 0.125, 0.39, 0, 0.375, 0.5, 0, -0.125, 0.375, 1.18}, // way1 front
-                                {0, -1, 0.5, 0.5, 0.375, 0.125, 0.39, 0, 0.25, 0.5, 0.5, -0.125, 0.375, 1.18}, //way 2 front
-                                {1, -1, 0.375, 0, 0.375, 0.125, 0.39, 0, 0.125, 0.5, 0.5, 0.375, 0.375, 1.18}, // way 3 front
-                                {0, 0, 1, 0, -0.125, 0.375, 1.18, 0, 0.25, 0.5, 0, 0, 10, 10}, // way 0 front
-                                {1, -0.125, 0.375, 0, 0, 10, 10, 0, 0.125, 0.25, 0, 0, 10, 10}, // engaged
-                                {1, -0.125, 1, 0.5, -0.125, 0.375, 1.18, 0, 0.125, 0.5, 0, 0, 10, 10}, // way 1 back
-                                {0, -1, 0.5, 0.5, -0.125, 0.125, 0.39, 0, 0, 0.5, 0.5, 0.375, 0.375, 1.18}, // way 2 back
-                                {1, -1, 0.375, 0.5, 0.375, 0.125, 0.39, 0, 0.375, 0.5, 0, 0, 10, 10}}; // way 3 back  
-
-    if(observation.user == 0){
-        min_distance(DB_observed, back_ref_points, len_back);
-        observation.trajectory_group += 5;
-    }else{
-        min_distance(DB_observed, front_ref_points, len_front);
-    }
-
-    Projected_point Pp_line;
-
-    Projected_pos Pp_arc_1;
-    Projected_pos Pp_arc_2;
-
-    float parallel_coor = 0;
-    float orthogonal_coor = 0;
-
-    if(trajectories[observation.trajectory_group][0] == 0){
-        parallel_coor = DB_observed.x;
-        orthogonal_coor = DB_observed.y;
-        observation.point.reference = nearest_group.x;
-
-    }else{
-        parallel_coor = DB_observed.y;
-        orthogonal_coor = DB_observed.x;
-        observation.point.reference = nearest_group.y;
-    }
-
-    Pp_line = line_projection(parallel_coor, orthogonal_coor, trajectories[observation.trajectory_group][8]);
-        observation.point.trajectory_lenght = trajectories[observation.trajectory_group][9];
-
-    if(trajectories[observation.trajectory_group][0] == 1){
-        observation.position_coor.x = Pp_line.coordinates.y;
-        observation.position_coor.y = Pp_line.coordinates.x;
-        
-    }else{
-        observation.position_coor = Pp_line.coordinates;
-    }
-    observation.point.mean = Pp_line.coordinates.x;
-    observation.point.projection_distance = Pp_line.projection_distance;
-
-    if(parallel_coor > trajectories[observation.trajectory_group][1] && parallel_coor < trajectories[observation.trajectory_group][2]){
-    
-        // arc1
-        Pp_arc_1 = arc_projection(DB_observed, trajectories[observation.trajectory_group][3], trajectories[observation.trajectory_group][4],
-        trajectories[observation.trajectory_group][5], trajectories[observation.trajectory_group][0]);
-
-        if(Pp_arc_1.point.projection_distance < observation.point.projection_distance){
-            observation.position_coor = Pp_arc_1.position;
-            observation.point.mean = Pp_arc_1.point.mean;
-            observation.point.projection_distance = Pp_arc_1.point.projection_distance;
-            observation.point.trajectory_lenght = trajectories[observation.trajectory_group][6];   
-        }
-    
-        // arc2
-        Pp_arc_2 = arc_projection(DB_observed, trajectories[observation.trajectory_group][10], trajectories[observation.trajectory_group][11],
-        trajectories[observation.trajectory_group][12], trajectories[observation.trajectory_group][0]);
-
-        if(Pp_arc_2.point.projection_distance < observation.point.projection_distance){
-            observation.position_coor = Pp_arc_2.position;
-            observation.point.mean = Pp_arc_2.point.mean;
-            observation.point.projection_distance = Pp_arc_2.point.projection_distance;
-            observation.point.trajectory_lenght = trajectories[observation.trajectory_group][13];
-        }
-    }
-}
-
-// probabilistic distributions
-float SimpleProblem::normal_dist(float x){
+float SimpleProblem::new_normal_dist(float mean, float x){
 
     //header
-    // 3o = 0.1 m
-    float std_dev = 0.1/3;
+    // 3o = 0.08 m
+    float o_1 = 0.1;
+    float std_dev = o_1/3;
 
-    float z = (x - observation.point.mean) / std_dev;
-    float p = 0.5 * erfc(-z * M_SQRT1_2);
+    float z = (x - mean) / std_dev;
+    float probability = 0.5 * erfc(-z * M_SQRT1_2);
 
-    return p;
+    return probability;
 }
 
-void SimpleProblem::joint_probability_distribution(){
+float SimpleProblem::new_bayesian_network(SimpleProblem::Projection projection){
 
-    float x1, x2;
+    float row = 1, mean_x = projection.pos.x, mean_y = projection.pos.y, x = 0, x2 = 0, car_inf, inflation_back = 0.15, inflation_front = 0.1, gap = 0.1, clearance = 0.05;
 
-    // header
-    float car_inflation, gap = 0.1, projection_lim = 0.125, clearance = 0.05;
+    if(user == 1 && (projection.group == destination || projection.group == 0)){
 
-    if (observation.user == 1 && observation.point.projection_distance <= projection_lim){
+        if(crosswalk_axis[projection.group] == 0){
 
-        // Di
-        if(observation.trajectory_group == 0 || observation.trajectory_group == destination){
-            x1 = observation.point.reference + observation.point.trajectory_lenght / 2;
-            x2 = observation.point.reference - observation.point.trajectory_lenght / 2;
-            row = 1 - abs(normal_dist(x2) - normal_dist(x1));
-        }
-    
-    }else if ((observation.user == 0 || observation.user == 2) && observation.point.projection_distance <= projection_lim){
+            row = 1 - abs(new_normal_dist(mean_x, intersection_limits[0]) - new_normal_dist(mean_x, intersection_limits[2]));
 
-        if(observation.user == 0){
-            car_inflation = 0.15;
         }else{
-            car_inflation = 0.08;
+
+            row = 1 - abs(new_normal_dist(mean_y, intersection_limits[1]) - new_normal_dist(mean_y, intersection_limits[3]));
         }
 
-        // DB0
-        x1 = observation.point.reference - car_inflation * observation.direction;
-        x2 = observation.point.reference + observation.direction * (observation.point.trajectory_lenght + car_inflation);
-        if(observation.user == 0 && destination == (observation.trajectory_group - 4)){
-            x1 -= (observation.direction * clearance);
-        }
-        row = 1 - abs(normal_dist(x2) - normal_dist(x1));
+    }else if(user == 0 || user == 2){
 
-        // DB1
-        if(observation.trajectory_group == 0){
+        if(user == 2){
 
-            x1 = observation.point.reference - observation.direction * car_inflation;
-            x2 = x1 - observation.direction * gap;
-            row *= 1 - abs(normal_dist(x2) - normal_dist(x1));
+            car_inf = inflation_front;
+
+        }else if(destination == projection.group){
+            
+            car_inf = inflation_back + clearance;
+
+        }else{
+            car_inf = inflation_back;
         }
 
-        // DB2                
-        if (destination == 3 && observation.trajectory_group == 1){
-            x1 = observation.point.reference - observation.direction * car_inflation;
-            x2 = x1 - observation.direction * gap;
-            row *= 1 - abs(normal_dist(x2) - normal_dist(x1));
+        row = 1 - abs(new_normal_dist(mean_x, (intersection_limits[0] - car_inf)) - new_normal_dist(mean_x, (intersection_limits[2] + car_inf)))
+                        *abs(new_normal_dist(mean_y, (intersection_limits[1] - car_inf)) - new_normal_dist(mean_y, (intersection_limits[3] + car_inf)));
+
+        ROS_INFO("row 0: %f", row);
+
+        if(user == 2){
+
+            if(projection.group == 1){
+
+                x = front_ref_points[0][1] - car_inf;
+                row *= 1 - abs(new_normal_dist(mean_y, x) - new_normal_dist(mean_y, (x - gap)));
+                ROS_INFO("row db1: %f", row);
+            }
+            if(projection.group == 2 && destination == 3){
+
+                x = front_ref_points[1][0] +  car_inf;
+                row *= 1 - abs(new_normal_dist(mean_x, x) - new_normal_dist(mean_x, (x + gap)));
+
+                ROS_INFO("row db2: %f", row);
+            }
         }
     }
+
+    return row;
 }
 
-// decision problem solution
-
-void SimpleProblem::solve(){
-
-    joint_probability_distribution();
+void SimpleProblem::new_solve(){
 
     float EU = 0;
 
@@ -303,5 +312,74 @@ void SimpleProblem::solve(){
             best.expected_utility = EU;
         }
     }
+}
+
+
+
+int SimpleProblem::solveMultivariate(SimpleProblem::Point DB_observed){
+
+    float duckie_limits [4][4] = {{-0.086, 0.086, -0.125, 0.375},
+                    {0, 0.5, -0.211, -0.039},
+                    {0.414, 0.586, -0.125, 0.375},
+                    {0, 0.5, 0.289, 0.461}};
+
+    float duckiebot_limits [3][4] = {{-0.1, 0.6, -0.225, 0.475},
+                    {0.25, 0.5, -0.325, -0.225},
+                    {0.6, 0.7, 0.25, 0.375}};
+
+    float expected_u = -10, row_multivariate = 1, presence = 0, presence_partial = 0;
+    int selected_action = 1, group = 0;
+
+    if(user == 1){
+
+        for (int i = 0; i < 4; i++){
+
+            presence_partial = abs(new_normal_dist(projected_user.x, duckie_limits[i][0]) - new_normal_dist(projected_user.x, duckie_limits[i][1])) * abs(new_normal_dist(projected_user.y, duckie_limits[i][2]) - new_normal_dist(projected_user.y, duckie_limits[i][3]));
+
+            if(presence_partial > presence){
+                presence = presence_partial;
+                group = i;
+            }
+            if(group == destination || group == 0){
+                
+                row_multivariate = 1 - presence;
+            }else{
+                row_multivariate = 1;
+            }
+        }
+
+    }else{
+
+        if(user == 2){
+            // DB0
+            row_multivariate = 1 - (abs(new_normal_dist(projected_user.x, duckiebot_limits[0][0]) - new_normal_dist(projected_user.x, duckiebot_limits[0][1])) * abs(new_normal_dist(projected_user.y, duckiebot_limits[0][2]) - new_normal_dist(projected_user.y, duckiebot_limits[0][3])));
+
+        }else{
+            row_multivariate = 1 - (abs(new_normal_dist(projected_user.x, -0.275) - new_normal_dist(projected_user.x, 0.525)) * abs(new_normal_dist(projected_user.y, -0.15) - new_normal_dist(projected_user.y, 0.65)));
+        }
+
+        // DB1
+        row_multivariate *= (1 - (abs(new_normal_dist(projected_user.x, duckiebot_limits[1][0]) - new_normal_dist(projected_user.x, duckiebot_limits[1][1])) * abs(new_normal_dist(projected_user.y, duckiebot_limits[1][2]) - new_normal_dist(projected_user.y, duckiebot_limits[1][3]))));
+
+        // DB2
+        if(destination == 3){
+            row_multivariate *= (1 - (abs(new_normal_dist(projected_user.x, duckiebot_limits[2][0]) - new_normal_dist(projected_user.x, duckiebot_limits[2][1])) * abs(new_normal_dist(projected_user.y, duckiebot_limits[2][2]) - new_normal_dist(projected_user.y, duckiebot_limits[2][3]))));
+        }
+    }
+
+    float EU = 0;
+
+    for(int a = 0; a < 2; a++){                
+
+        EU = row_multivariate * utilities[a][0] + (1 - row_multivariate) * utilities[a][1];
+
+        if(EU > expected_u){
+            
+            selected_action = a;
+            expected_u = EU;
+        }
+    }
+
+    return selected_action;
 
 }
