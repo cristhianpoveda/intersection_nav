@@ -8,6 +8,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from duckietown.dtros import DTROS, NodeType
 from sensor_msgs.msg import CompressedImage, CameraInfo
+from geometry_msgs.msg import Pose
 from duckietown_msgs.msg import FSMState
 from std_msgs.msg import Float32
 from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse
@@ -57,7 +58,7 @@ class StopSignDetector(DTROS):
         # publisher (edited image)
         self.pub_center = rospy.Publisher('~debug/detected_center/compressed', CompressedImage, queue_size=1)
 
-        self.pub_dist = rospy.Publisher('~debug/stop_line_distance', Float32, queue_size=1)
+        self.pub_dist = rospy.Publisher('~debug/stop_line_distance', Pose, queue_size=1)
 
         self.pub_time = rospy.Publisher('~debug/calculation_time', Float32, queue_size=1)
 
@@ -78,7 +79,8 @@ class StopSignDetector(DTROS):
 
     def srv_stop(self, req=None):
         
-        distance_base = self._detection_distance
+        pose = Pose()
+        pose.position.x = self._detection_distance
         x,y,w,h = 1,1,2,2
         
         while not self.stop:
@@ -112,14 +114,18 @@ class StopSignDetector(DTROS):
 
                 distance_base = np.sqrt(np.power(distance_camera, 2) - np.power(self.camera_h, 2)) + 0.058
 
-                end = rospy.get_rostime()
-                time_t = (end - start).to_sec()
+                angle = - ((13/64) * (x + w / 2) - 130 / 2)
+                angle_rads = np.radians(angle)
 
-                if self.pub_time.anybody_listening():
+                [vx,vy,line_x,line_y] = cv2.fitLine(c, cv2.DIST_L2,0,0.01,0.01)
+                h_angle = 2 * np.arctan(vy/vx)
 
-                    self.pub_time.publish(time_t)
+                pose.position.x = - distance_base * np.cos(angle_rads + h_angle)
+                pose.position.y = distance_base * np.sin(angle_rads + h_angle)
+                pose.orientation.z = -np.sin(h_angle/2)
+                pose.orientation.w = np.cos(h_angle/2)
 
-                if distance_base < self._stop_distance:
+                if pose.position.x > self._stop_distance:
                     # pub FSM state to stop
                     state = FSMState()
                     state.state = "INTERSECTION_COORDINATION"
@@ -127,28 +133,37 @@ class StopSignDetector(DTROS):
                     time.sleep(1)
                     self.stop = True
 
+                end = rospy.get_rostime()
+                time_t = (end - start).to_sec()
+
+                if self.pub_time.anybody_listening():
+
+                    self.pub_time.publish(time_t)
 
                 if self.pub_dist.anybody_listening():
 
-                    str_msg = distance_base
-                    self.pub_dist.publish(str_msg)
+                    self.pub_dist.publish(pose)
 
             else:
-                distance_base = 0.5
+                pose.position.x = -0.5
 
             if self.pub_center.anybody_listening():
 
                 image_center = cv2.rectangle(undistorted_img,(x,y),(x+w,y+h),(0,255,0),2)
+                rows,cols = image_center.shape[:2]
+                lefty = int((-x*vy/vx) + y)
+                righty = int(((cols-x)*vy/vx)+y)
+                image_line = cv2.line(image_center,(cols-1,righty),(0,lefty),(255,0,0),2)
 
                 try:
-                    self.pub_center.publish(self.bridge.cv2_to_compressed_imgmsg(image_center, "jpeg"))
+                    self.pub_center.publish(self.bridge.cv2_to_compressed_imgmsg(image_line, "png"))
                 except CvBridgeError as e:
                     print(e)
 
         rospy.loginfo("Duckiebot stopped at: %f m from stop line.", distance_base)
 
         response = DetectStopSignResponse()
-        response.distance.data = distance_base
+        response.initial_pose = pose
 
         self.stop = False
 

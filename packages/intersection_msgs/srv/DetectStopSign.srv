@@ -1,2 +1,2 @@
 ---
-std_msgs/Float32 distance
+geometry_msgs/Pose initial_pose
