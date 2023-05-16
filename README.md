@@ -1,47 +1,52 @@
-# Template: template-ros
+# Intersection driving for Duckiebots DB19.
 
-This template provides a boilerplate repository
-for developing ROS-based software in Duckietown.
+**NOTE:** Based on duckietown/template-ros.
 
-**NOTE:** If you want to develop software that does not use
-ROS, check out [this template](https://github.com/duckietown/template-basic).
+This repository contains an intersection negotiation functionality for Duckiebots model DB19.
 
+**Considerations:** 
+
+* Road users: vehicles (duckiebtos) and pedestrians (duckies).
+* Static road users.
+* Intersections of 4 perpendicular wyas, planar ground and given map.
+* Vehicles just perform 90° turns.
+* Pedestrians only cross the street between adjacent blocks.
+* Priority rules accoring to Colombia's National Transit Code.
+* Negotiation refers to avoid collisions inside conflict zones without muli-agent communication.
+* Duckiebot DB19 equipped with a Raspberry pi 3b+ (ARM32v7, 1.4 GHz, 1G RAM).
+
+## 
+
+### Preliminar instalations
+To execute this system it is required to have a flashed Duckiebot model DB19, and to follow the [Laptop Setup](https://docs.duckietown.com/daffy/opmanual-duckiebot/setup/setup_laptop/index.html) tutorial from Duckietown.
+
+### Scene setup
+It is required to locate all road users in the scene before executing the system.
 
 ## How to use it
 
-### 1. Fork this repository
+### 1. Fork repository
 
-Use the fork button in the top-right corner of the github page to fork this template repository.
+Fork this repository to your local machine. Then move to the main directory.
 
+`cd /local_path/intersection_nav/`
 
-### 2. Create a new repository
+### 2. Build a docker image on the Duckiebot
 
-Create a new repository on github.com while
-specifying the newly forked template repository as
-a template for your new repository.
+`dts devel build -f -H ROBOTNAME.local` build docker image on the robot.
 
+### 3. Run a container with the system
 
-### 3. Define dependencies
+`dts devel build -f -H ROBOTNAME.local` run a docker container created from the system's image.
 
-List the dependencies in the files `dependencies-apt.txt` and
-`dependencies-py3.txt` (apt packages and pip packages respectively).
+### 4. Configure the system's initial state
 
+In another terminal run `docker -H ROBOTNAME.local exec -it dts-run-intersection_nav bash` to attach to the container.
 
-### 4. Place your code
+Once entered to the container run: `/launch/intersection_nav` to start autoconfiguration. This command will show the message: **Setting up intersection negotiation!**.
 
-Place your code in the directory `/packages/` of
-your new repository.
+### 5. Send a navigation goal
 
+`rostopic pub /ROBOTNAME/chief_node/goal destination: DESIRED_DESTINATION_NUMBER`
 
-### 5. Setup launchers
-
-The directory `/launchers` can contain as many launchers (launching scripts)
-as you want. A default launcher called `default.sh` must always be present.
-
-If you create an executable script (i.e., a file with a valid shebang statement)
-a launcher will be created for it. For example, the script file 
-`/launchers/my-launcher.sh` will be available inside the Docker image as the binary
-`dt-launcher-my-launcher`.
-
-When launching a new container, you can simply provide `dt-launcher-my-launcher` as
-command.
+After setting a destination, the system will wait for the current navigation mode to move robot toward the intersection. At this point the intersection will be being detected, and the system will take control of the robot once it has arrived to the desired stop distance from the intersection.
