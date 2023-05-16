@@ -43,24 +43,21 @@ class SimpleProblem{
 
         Projection second_projection;
 
-        int new_project_to_crosswalk();
+        int project_to_crosswalk();
 
-        int new_min_distance(float (*ref_points)[3]);
+        int min_distance(float (*ref_points)[3]);
 
-        Projection new_line_projection(int idx);
+        Projection line_projection(int idx);
 
-        Projection new_arc_projection(int idx);
+        Projection arc_projection(int idx);
 
-        int new_project_to_trajectory();
+        int project_to_trajectory();
 
-        float new_normal_dist(float mean, float x);
+        float normal_dist(float mean, float x);
 
-        float new_bayesian_network(Projection projection);
+        float bayesian_network(Projection projection);
 
-        void new_solve();
-
-
-        int solveMultivariate(SimpleProblem::Point observed_user);
+        void solve();
 
     private:
         // header
@@ -81,19 +78,16 @@ class SimpleProblem{
                                         {0.5, 0.0, -1},
                                         {0.375, 0.375, -1}};
 
-                                            // center; front; back; h / axis; k / b; r.
-        float intersection_trajectories[10][6] = {{1, 1, -1, 0, -0.125, 0.375},
-                                                 {1, 1, 2, 0.5, -0.125, 0.125},
-                                                 {0, 1, 3, 1, 0.375, 0},
-                                                 {0, 2, -1, 0, 0.25, 0},
-                                                 {1, 2, 1, 0.5, -0.125, 0.375},                                                 
-                                                 {1, 2, 3, 0.5, 0.375, 0.125},
-                                                 {1, 3, -1, 0, 0.375, 0.125},
+        float intersection_trajectories[10][7] = {{1, 1, -1, -0.175, -0.275, 1.1, 1.05},
+                                                 {1, 1, 2, 0.625, -0.275, 0.5, 0.56},
+                                                 {0, 1, 3, 1, 0.375, 0, 0},
+                                                 {0, 2, -1, 0, 0.25, 0, 0},
+                                                 {1, 2, 1, 0.65, -0.3, 1.05, 1.1},                                                 
+                                                 {1, 2, 3, 0.65, 0.5, 0.56, 0.5},
+                                                 {1, 3, -1, -0.125, 0.525, 0.5, 0.56},
                                                  {0, 3, 1, 1, 0.125, 0},
-                                                 {1, 3, 2, 0.5, 0.375, 0.375},
+                                                 {1, 3, 2, 0.675, 0.525, 1.1, 1.05},
                                                  {1, -1, 2, 0, 0, 0}};
-
-                                                 // ADD LINE Y = 0
 
 };
 

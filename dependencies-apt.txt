@@ -1,9 +1,7 @@
 # LIST YOUR APT PACKAGES HERE
 ros-noetic-map-server
 ros-noetic-map-msgs
-ros-noetic-robot-localization
 ros-noetic-move-base
 ros-noetic-move-base-msgs
 ros-noetic-global-planner
-ros-noetic-dwa-local-planner
 ros-noetic-teb-local-planner

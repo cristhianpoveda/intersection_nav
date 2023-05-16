@@ -102,9 +102,6 @@ class ObjectDetector(DTROS):
         if(detection_class != 1):
             distance += self.vehicle_depth
 
-        rospy.loginfo("angle: %f", angle)
-        rospy.loginfo("distance: %f", distance)
-
         pos_x = self.cam_to_base + distance * np.cos(angle_rads)
         pos_y = distance * np.sin(angle_rads)
 
@@ -210,7 +207,7 @@ class ObjectDetector(DTROS):
 
 if __name__ == '__main__':
     # create the node
-    node = ObjectDetector(node_name='runtime_detector')
+    node = ObjectDetector(node_name='object_detection_node')
 
     # keep spinning
     rospy.spin()

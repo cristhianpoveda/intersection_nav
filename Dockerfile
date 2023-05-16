@@ -1,6 +1,6 @@
 # parameters
 ARG REPO_NAME="intersection_nav"
-ARG DESCRIPTION="intersection navigation for duckiebots"
+ARG DESCRIPTION="intersection navigation for duckiebots DB19"
 ARG MAINTAINER="Cristhian Daniel Poveda Bravo (cristhianpoveda12@gmail.com)"
 # pick an icon from: https://fontawesome.com/v4.7.0/icons/
 ARG ICON="cube"

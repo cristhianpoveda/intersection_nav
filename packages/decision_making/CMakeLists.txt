@@ -3,7 +3,6 @@ project(decision_making)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  std_msgs
   geometry_msgs
   intersection_msgs
 )
@@ -12,7 +11,6 @@ catkin_package(
     INCLUDE_DIRS
     CATKIN_DEPENDS
     roscpp
-    std_msgs
     geometry_msgs
     intersection_msgs
 )

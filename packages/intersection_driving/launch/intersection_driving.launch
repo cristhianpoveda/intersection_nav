@@ -3,7 +3,7 @@
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
 
     <!-- Intersection navigation action server -->
-    <include file="$(find navigation)/launch/chief_node.launch">
+    <include file="$(find intersection_driving)/launch/chief_node.launch">
        <arg name="veh" value="$(arg veh)"/>
     </include>
 
@@ -16,7 +16,7 @@
     <include file="$(find navigation)/launch/navigation_nodes.launch" />
 
     <!-- Stop sign detector -->
-    <include file="$(find navigation)/launch/stop_sign_detector_node.launch">
+    <include file="$(find detection)/launch/stop_sign_detector_node.launch">
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
