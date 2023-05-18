@@ -78,8 +78,6 @@ class ObjectDetector(DTROS):
 
         self.pub_time_ann = rospy.Publisher('~debug/inference_time', Float32, queue_size=0)
 
-        self.pub_time_proj = rospy.Publisher('~debug/projection_time', Float32, queue_size=0)
-
         # subscriber to camera_node/image/compressed
         self.sub = rospy.Subscriber('/duckiebot4/camera_node/image/compressed', CompressedImage, self.camera, queue_size=1)
 
@@ -92,23 +90,17 @@ class ObjectDetector(DTROS):
 
     def coordinates(self, ymax, ymin, xmax, xmin, h, scale_coeficient, detection_class):
 
-        start_projection_time = rospy.get_rostime()
-
         angle = - (self.angle_constant * ((xmax + xmin) / 2) - self.hfov / 2)
-        angle_rads = np.radians(angle)
 
         distance = scale_coeficient * abs(angle) + self.focal * h / (ymax - ymin)
 
         if(detection_class != 1):
             distance += self.vehicle_depth
 
-        pos_x = self.cam_to_base + distance * np.cos(angle_rads)
-        pos_y = distance * np.sin(angle_rads)
+        # pos_x = self.cam_to_base + distance * np.cos(angle_rads)
+        # pos_y = distance * np.sin(angle_rads)
 
-        end_projection_time = rospy.get_rostime()
-        projection_time = (end_projection_time - start_projection_time).to_sec()
-
-        return pos_x, pos_y, projection_time
+        return angle, distance
 
     def srv_detect(self, req=None):
 
@@ -178,19 +170,15 @@ class ObjectDetector(DTROS):
                 detection_class = int(classes[i])
 
                 if(int(classes[i]) == 0):
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.back_h, self.scale_db, detection_class)
+                    angle, distance = self.coordinates(ymax, ymin, xmax, xmin, self.back_h, self.scale_db, detection_class)
 
                 elif(int(classes[i]) == 1):
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h, self.scale_d, detection_class)
+                    angle, distance = self.coordinates(ymax, ymin, xmax, xmin, self.duckie_h, self.scale_d, detection_class)
 
                 else:
-                    pos_x, pos_y, projection_time = self.coordinates(ymax, ymin, xmax, xmin, self.front_h, self.scale_db, detection_class)
+                    angle, distance = self.coordinates(ymax, ymin, xmax, xmin, self.front_h, self.scale_db, detection_class)
 
-                detections.extend([detection_class, pos_x, pos_y])
-
-                if self.pub_time_proj.anybody_listening():
-
-                    self.pub_time_proj.publish(projection_time)
+                detections.extend([detection_class, angle, distance])
 
         out_buffer = DetectUsersResponse()
         out_buffer.detections.layout.data_offset = detection_num

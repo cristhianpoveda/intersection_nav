@@ -31,8 +31,8 @@ class DecisionNode{
             simple_problem.destination = request.destination.data;
             simple_problem.best.action = 0;            
 
-            int num_of_detections = 0, idx, class_idx, x_idx, y_idx, probable_projections = 0, decision_1 = 0, decision_2 = 0, final_decision = 0;
-            float excecution_time, row_1 = 1, row_2 = 1;
+            int num_of_detections = 0, idx, class_idx, angle_idx, distance_idx, probable_projections = 0, decision_1 = 0, decision_2 = 0, final_decision = 0;
+            float excecution_time, row_1 = 1, row_2 = 1, world_angle = 0,, cam_2_base = 0.0582;
 
             intersection_msgs::DetectUsers detection_service;
             if (client.call(detection_service))
@@ -54,12 +54,14 @@ class DecisionNode{
                     row_2 = 1;
 
                     class_idx = 3 * i;
-                    x_idx = class_idx + 1;
-                    y_idx = class_idx + 2;
+                    angle_idx = class_idx + 1;
+                    distance_idx = class_idx + 2;
+
+                    world_angle = request.stop_pose.orientation.z + detection_service.response.detections.data[angle_idx];
 
                     simple_problem.user = int(detection_service.response.detections.data[class_idx]);
-                    simple_problem.projected_user.x = detection_service.response.detections.data[x_idx] - request.stop_dist.data;
-                    simple_problem.projected_user.y = detection_service.response.detections.data[y_idx];
+                    simple_problem.projected_user.x = cam_2_base * cos(request.stop_pose.orientation.z) + detection_service.response.detections.data[distance_idx] * cos(world_angle) - request.stop_pose.position.x;
+                    simple_problem.projected_user.y = cam_2_base * cos(request.stop_pose.orientation.z) + detection_service.response.detections.data[distance_idx] * sin(world_angle) - request.stop_pose.position.y;
 
                     if(simple_problem.user == 1){
 

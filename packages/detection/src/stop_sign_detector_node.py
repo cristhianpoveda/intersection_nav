@@ -35,9 +35,11 @@ class StopSignDetector(DTROS):
         self.k2 = rospy.get_param('~k2')
         self.k3 = rospy.get_param('~k3')
         self.k4 = rospy.get_param('~k4')
+        self.hfov = rospy.get_param('~hfov')
         self.img_w = rospy.get_param('~img_w')
         self.img_h = rospy.get_param('~img_h')
         self.camera_h = rospy.get_param('~camera_h')
+        self.cam_to_base = rospy.get_param('~cam_to_base')
 
         self.K = np.array([[self.fx,0.0,self.cx],[0.0,self.fy,self.cy],[0.0,0.0,1.0]])
         self.D=np.array([[self.k1],[self.k2],[self.k3],[self.k4]])
@@ -47,6 +49,8 @@ class StopSignDetector(DTROS):
         self.x_r, self.y_r, self.w_r, self.h_r = roi
 
         self.focal = np.sqrt(np.power(self.fx, 2) + np.power(self.fy, 2)) / 2
+
+        self.angle_constant = self.hfov / self.img_w
         
         self.image_np = np.zeros((self.img_w, self.img_h, 1), dtype = "uint8")
 
@@ -112,16 +116,15 @@ class StopSignDetector(DTROS):
 
                 distance_camera = self.focal * self.lane_width / w
 
-                distance_base = np.sqrt(np.power(distance_camera, 2) - np.power(self.camera_h, 2)) + 0.058
+                distance_ground = np.sqrt(np.power(distance_camera, 2) - np.power(self.camera_h, 2))
 
-                angle = - ((13/64) * (x + w / 2) - 130 / 2)
-                angle_rads = np.radians(angle)
+                angle = - (self.angle_constant * (x + w / 2) - self.hfov / 2)
 
                 [vx,vy,line_x,line_y] = cv2.fitLine(c, cv2.DIST_L2,0,0.01,0.01)
                 h_angle = 2 * np.arctan(vy/vx)
 
-                pose.position.x = - distance_base * np.cos(angle_rads + h_angle)
-                pose.position.y = distance_base * np.sin(angle_rads + h_angle)
+                pose.position.x = - distance_ground * np.cos(angle + h_angle) - self.cam_to_base * np.cos(h_angle)
+                pose.position.y = distance_ground * np.sin(angle + h_angle) - self.cam_to_base * np.sin(h_angle)
                 pose.orientation.z = -np.sin(h_angle/2)
                 pose.orientation.w = np.cos(h_angle/2)
 
@@ -160,7 +163,7 @@ class StopSignDetector(DTROS):
                 except CvBridgeError as e:
                     print(e)
 
-        rospy.loginfo("Duckiebot stopped at: %f m from stop line.", distance_base)
+        rospy.loginfo("Duckiebot stopped at: %f m from stop line.", pose.position.x)
 
         response = DetectStopSignResponse()
         response.initial_pose = pose

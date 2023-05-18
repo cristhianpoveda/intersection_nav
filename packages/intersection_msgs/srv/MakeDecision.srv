@@ -1,4 +1,4 @@
 std_msgs/Int16 destination
-std_msgs/Float32 stop_dist
+geometry_msgs/Pose stop_pose
 ---
 std_msgs/Int16 decision

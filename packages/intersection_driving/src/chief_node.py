@@ -131,7 +131,9 @@ class ChiefNode(DTROS):
         try:
             destination_request = MakeDecisionRequest()
             destination_request.destination.data = goal.destination.data
-            destination_request.stop_dist.data = 0.2
+            destination_request.stop_pose.position.x = arrived_response.position.x
+            destination_request.stop_pose.position.y = arrived_response.position.y
+            destination_request.stop_pose.orientation.z = arrived_response.orientation.z
             inf = rospy.ServiceProxy('/srv_decision', MakeDecision)
             decision_resp = inf(destination_request)
 
