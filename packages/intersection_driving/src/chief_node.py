@@ -11,6 +11,7 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, Mov
 from duckietown_msgs.msg import FSMState
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from geometry_msgs.msg import Pose
+from duckietown_msgs.srv import NodeRequestParamsUpdate, NodeRequestParamsUpdateRequest
 
 class ChiefNode(DTROS):
     # create messages that are used to publish feedback/result
@@ -108,13 +109,13 @@ class ChiefNode(DTROS):
 
         rospy.wait_for_service('/duckiebot4/velocity_to_pose_node/update_pose')
         try:
-            actual_pose = SetValueRequest()
-            actual_pose.value = - 0.2
-            pose = rospy.ServiceProxy('/duckiebot4/velocity_to_pose_node/update_pose', SetValue)
-            pose()
+            actual_pose = NodeRequestParamsUpdateRequest()
+            actual_pose.parameter = str(arrived_response.position.x) + "," + str(arrived_response.position.y) + "," + str(arrived_response.orientation.z)
+            pose = rospy.ServiceProxy('/duckiebot4/velocity_to_pose_node/update_pose', NodeRequestParamsUpdate)
+            update_success = pose()
 
             # 2nd task feedback
-            self._feedback.tasks = "Duckiebot located on intersection map"
+            self._feedback.tasks = "Duckiebot located on intersection map: " + str(update_success)
             self._as.publish_feedback(self._feedback)
 
         except rospy.ServiceException as e:
