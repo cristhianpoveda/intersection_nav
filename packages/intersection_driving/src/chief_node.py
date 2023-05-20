@@ -5,9 +5,8 @@ import rospy
 import actionlib
 from duckietown.dtros import DTROS, NodeType
 import intersection_msgs.msg
-from intersection_msgs.srv import DetectStopSign, DetectStopSignResponse, MakeDecision, MakeDecisionRequest
-from duckietown_msgs.srv import SetValue, SetValueRequest
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult, MoveBaseFeedback
+from intersection_msgs.srv import DetectStopSign, MakeDecision, MakeDecisionRequest
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from duckietown_msgs.msg import FSMState
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from geometry_msgs.msg import Pose

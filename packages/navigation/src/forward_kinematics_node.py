@@ -4,7 +4,6 @@ import rospy
 import math
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import WheelEncoderStamped, Twist2DStamped
-from geometry_msgs.msg import TwistWithCovarianceStamped
 
 class ForwardKinematics(DTROS):
     def __init__(self, node_name):

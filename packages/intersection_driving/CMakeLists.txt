@@ -4,6 +4,11 @@ project(intersection_driving)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  duckietown_msgs
+  intersection_msgs
+  move_base_msgs
+  geometry_msgs
+  std_srvs
 )
 
 
