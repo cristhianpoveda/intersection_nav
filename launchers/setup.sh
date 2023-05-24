@@ -6,6 +6,14 @@ source /environment.sh
 
 dt-exec rosparam set /"$VEHICLE_NAME"/camera_node/framerate 8
 
+# Set maximum velocities
+
+dt-exec rosparam set /"$VEHICLE_NAME"/kinematics_node/v_max 0.2
+
+dt-exec rosparam set /"$VEHICLE_NAME"/kinematics_node/omega_max 8.0
+
+dt-exec rosparam set /"$VEHICLE_NAME"/kinematics_node/limit 1.0
+
 # Reduce resources consumption
 
 dt-exec rosservice call /"$VEHICLE_NAME"/stop_sign_detector_node/switch False
