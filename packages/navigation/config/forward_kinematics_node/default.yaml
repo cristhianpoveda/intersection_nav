@@ -2,3 +2,6 @@ r: 0.033
 l: 0.0484
 encoder_resolution: 133
 publish_period: 0.05
+filter_a1: -0.222
+filter_b1: 0.611
+filter_b2: 0.611

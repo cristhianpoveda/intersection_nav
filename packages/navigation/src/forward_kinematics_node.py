@@ -3,7 +3,7 @@ import os
 import rospy
 import math
 from duckietown.dtros import DTROS, NodeType
-from duckietown_msgs.msg import WheelEncoderStamped, Twist2DStamped
+from duckietown_msgs.msg import WheelEncoderStamped, Twist2DStamped, WheelsCmdStamped
 
 class ForwardKinematics(DTROS):
     def __init__(self, node_name):
@@ -14,10 +14,17 @@ class ForwardKinematics(DTROS):
         self.l = rospy.get_param('~l')
         self.encoder_resolution = rospy.get_param('~encoder_resolution')
         self.publish_period = rospy.get_param('~publish_period')
+        self.filter_a1 = rospy.get_param('~filter_a1')
+        self.filter_b1 = rospy.get_param('~filter_b1')
+        self.filter_b2 = rospy.get_param('~filter_b2')
         self.right_tick = 0
         self.left_tick = 0
         self.last_right_tick = 0
         self.last_left_tick = 0
+        self.prev_filtered_r = 0
+        self.prev_r = 0
+        self.prev_filtered_l = 0
+        self.prev_l = 0
 
         # subscriber to right encoder topic
         self.sub_right_encoder = rospy.Subscriber('/duckiebot4/right_wheel_encoder_node/tick', WheelEncoderStamped, self.cb_right_wheel)
@@ -27,6 +34,8 @@ class ForwardKinematics(DTROS):
 
         # publishers
         self.pub_vel = rospy.Publisher('~velocity', Twist2DStamped, queue_size=2)
+
+        self.pub_wheels_speed = rospy.Publisher('~measured/wheels', WheelsCmdStamped, queue_size=2)
 
         rospy.Timer(rospy.Duration(self.publish_period), self.cb_timer)
 
@@ -38,20 +47,39 @@ class ForwardKinematics(DTROS):
         
         self.left_tick = left_tick_msg.data
 
+    def filter_signal(self, prev_y, x, prev_x):
+        
+        # Filter signal: low-pass filter 50Hz
+        filtered = self.filter_a1 * prev_y + self.filter_b1 * x + self.filter_b2 * prev_x
+        return filtered
+
     def cb_timer(self, event):
         
         phi_dot_right = (self.right_tick - self.last_right_tick) * 2 * math.pi / (self.encoder_resolution * self.publish_period)
         phi_dot_left = (self.left_tick - self.last_left_tick) * 2 * math.pi / (self.encoder_resolution * self.publish_period)
 
+        filtered_right = self.filter_signal(self.prev_filtered_r, phi_dot_right, self.prev_r)
+        filtered_left = self.filter_signal(self.prev_filtered_l, phi_dot_left, self.prev_l)
+
+        wheels_msg = WheelsCmdStamped()
+        wheels_msg.vel_left = filtered_left
+        wheels_msg.vel_right = filtered_right
+
+        self.pub_wheels_speed.publish(wheels_msg)
+
         twist_msg = Twist2DStamped()
         twist_msg.header.stamp = rospy.get_rostime()
-        twist_msg.v = (self.r / 2) * (phi_dot_right + phi_dot_left)
-        twist_msg.omega = self.r * (phi_dot_right - phi_dot_left) / (2 * self.l)
+        twist_msg.v = (self.r / 2) * (filtered_right + filtered_left)
+        twist_msg.omega = self.r * (filtered_right - filtered_left) / (2 * self.l)
 
         self.pub_vel.publish(twist_msg)
 
         self.last_right_tick = self.right_tick
         self.last_left_tick = self.left_tick
+        self.prev_filtered_r = filtered_right
+        self.prev_r = phi_dot_right
+        self.prev_filtered_l = filtered_left
+        self.prev_l = phi_dot_left
 
 if __name__ == '__main__':
     node = ForwardKinematics(node_name='forward_kinematics_node')
