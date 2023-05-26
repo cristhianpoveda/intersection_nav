@@ -107,7 +107,7 @@ SimpleProblem::Projection SimpleProblem::line_projection(int idx){
 SimpleProblem::Projection SimpleProblem::arc_projection(int idx){
 
     SimpleProblem::Projection projection;
-    float = theta = 0, k = 0;
+    float theta = 0, k = 0;
 
     theta = atan2(projected_user.y - intersection_trajectories[idx][4], projected_user.x - intersection_trajectories[idx][3]);
 

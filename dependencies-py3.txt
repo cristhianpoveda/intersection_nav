@@ -1,2 +1,2 @@
 # LIST YOUR PYTHON3 PACKAGES HERE
-tflite-runtime
+tflite-runtime==2.11.0

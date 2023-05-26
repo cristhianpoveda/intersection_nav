@@ -5,8 +5,8 @@
 
   <group ns="$(arg veh)">  
 
-    <node pkg="navigation" type="stop_sign_detector_node.py" name="stop_sign_detector_node" output="screen">
-        <rosparam command="load" file="$(find navigation)/config/stop_sign_detector_node/default.yaml"/>
+    <node pkg="detection" type="stop_sign_detector_node.py" name="stop_sign_detector_node" output="screen">
+        <rosparam command="load" file="$(find detection)/config/stop_sign_detector_node/default.yaml"/>
     </node>
 
   </group>

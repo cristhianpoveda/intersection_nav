@@ -32,7 +32,7 @@ class DecisionNode{
             simple_problem.best.action = 0;            
 
             int num_of_detections = 0, idx, class_idx, angle_idx, distance_idx, probable_projections = 0, decision_1 = 0, decision_2 = 0, final_decision = 0;
-            float excecution_time, row_1 = 1, row_2 = 1, world_angle = 0,, cam_2_base = 0.0582;
+            float excecution_time, row_1 = 1, row_2 = 1, world_angle = 0, cam_2_base = 0.0582;
 
             intersection_msgs::DetectUsers detection_service;
             if (client.call(detection_service))
@@ -85,18 +85,18 @@ class DecisionNode{
                         pub_pos.publish(context_projection);
                     }
 
-                    row_1 = simple_problem.new_bayesian_network(simple_problem.primary_projection);
+                    row_1 = simple_problem.bayesian_network(simple_problem.primary_projection);
 
                     if(probable_projections > 1){
-                        row_2 = simple_problem.new_bayesian_network(simple_problem.second_projection);
+                        row_2 = simple_problem.bayesian_network(simple_problem.second_projection);
                     }
 
                     simple_problem.row = row_1;
-                    simple_problem.new_solve();
+                    simple_problem.solve();
                     decision_1 = simple_problem.best.action;
 
                     simple_problem.row = row_2;
-                    simple_problem.new_solve();
+                    simple_problem.solve();
                     decision_2 = simple_problem.best.action;
 
                     final_decision = decision_1 * decision_2;
