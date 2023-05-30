@@ -124,8 +124,8 @@ class StopSignDetector(DTROS):
                 h_angle = 2 * np.arctan(vy/vx)
 
                 pose.position.x = - distance_ground * np.cos(angle + h_angle) - self.cam_to_base * np.cos(h_angle)
-                pose.position.y = distance_ground * np.sin(angle + h_angle) - self.cam_to_base * np.sin(h_angle)
-                pose.orientation.z = -np.sin(h_angle/2)
+                pose.position.y = self.cam_to_base * np.sin(h_angle) - distance_ground * np.sin(angle + h_angle)
+                pose.orientation.z = np.sin(h_angle/2)
                 pose.orientation.w = np.cos(h_angle/2)
 
                 if pose.position.x > self._stop_distance:

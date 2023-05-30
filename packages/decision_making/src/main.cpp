@@ -4,6 +4,8 @@
 #include <intersection_msgs/DetectUsers.h>
 #include "simple_problem.h"
 
+#define DEBUGGING
+
 class DecisionNode{
     ros::NodeHandle nh;
     ros::ServiceServer srv_decision;
@@ -17,7 +19,7 @@ class DecisionNode{
             : nh()
         {
             srv_decision = nh.advertiseService("/srv_decision", &DecisionNode::srv_callback, this);
-            client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/runtime_detector/detect_users");
+            client = nh.serviceClient<intersection_msgs::DetectUsers>("/duckiebot4/object_detection_node/detect_users");
             pub_pos = nh.advertise<geometry_msgs::Point32>("/duckiebot4/decision_making_node/debug/projected_pos", 0);
         }
 
@@ -60,8 +62,14 @@ class DecisionNode{
                     world_angle = request.stop_pose.orientation.z + detection_service.response.detections.data[angle_idx];
 
                     simple_problem.user = int(detection_service.response.detections.data[class_idx]);
-                    simple_problem.projected_user.x = cam_2_base * cos(request.stop_pose.orientation.z) + detection_service.response.detections.data[distance_idx] * cos(world_angle) - request.stop_pose.position.x;
-                    simple_problem.projected_user.y = cam_2_base * cos(request.stop_pose.orientation.z) + detection_service.response.detections.data[distance_idx] * sin(world_angle) - request.stop_pose.position.y;
+                    simple_problem.projected_user.x = cam_2_base * cos(request.stop_pose.orientation.z) + detection_service.response.detections.data[distance_idx] * cos(world_angle) + request.stop_pose.position.x;
+                    simple_problem.projected_user.y = cam_2_base * sin(request.stop_pose.orientation.z) + detection_service.response.detections.data[distance_idx] * sin(world_angle) + request.stop_pose.position.y;
+
+                    #ifdef DEBUGGING
+                        ROS_INFO("user: %d", simple_problem.user);
+                        ROS_INFO("x: %f", simple_problem.projected_user.x);
+                        ROS_INFO("y: %f", simple_problem.projected_user.y);
+                    #endif
 
                     if(simple_problem.user == 1){
 

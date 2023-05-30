@@ -20,6 +20,8 @@ class ChiefNode(DTROS):
     def __init__(self, node_name):
         super(ChiefNode, self).__init__(node_name=node_name, node_type=NodeType.BEHAVIOR)
 
+        self.veh_name = rospy.get_namespace().strip("/")
+
         # params
         self._way1 = rospy.get_param('~way1')
         self._way2 = rospy.get_param('~way2')
@@ -98,7 +100,7 @@ class ChiefNode(DTROS):
 
         # SWITCH OBJECT DETECTION ON
 
-        switch_response = self.call_swicth_srv('/duckiebot4/runtime_detector/switch', True)
+        switch_response = self.call_swicth_srv('/duckiebot4/object_detection_node/switch', True)
 
         if not switch_response.success:
             self.fail_msg()

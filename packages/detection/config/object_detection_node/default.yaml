@@ -19,7 +19,7 @@ hfov: 2.2689280275926285
 img_w: 640
 img_h: 480
 
-scale_db: 0.003
-scale_d: 0.0027
+scale_db: 0.172
+scale_d: 0.155
 vehicle_depth: 0.08
 cam_to_base: 0.0582

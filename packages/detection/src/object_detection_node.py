@@ -8,7 +8,7 @@ import math
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from duckietown.dtros import DTROS, NodeType
-from sensor_msgs.msg import Image, CameraInfo, CompressedImage 
+from sensor_msgs.msg import Image, CompressedImage 
 from std_msgs.msg import Float32
 from intersection_msgs.srv import DetectUsers, DetectUsersResponse
 import tflite_runtime.interpreter as tflite
