@@ -47,38 +47,38 @@ class ForwardKinematics(DTROS):
         
         self.left_tick = left_tick_msg.data
 
-    def filter_signal(self, prev_y, x, prev_x):
+    # def filter_signal(self, prev_y, x, prev_x):
         
-        # Filter signal: low-pass filter 50Hz
-        filtered = self.filter_a1 * prev_y + self.filter_b1 * x + self.filter_b2 * prev_x
-        return filtered
+    #     # Filter signal: low-pass filter 50Hz
+    #     filtered = round(self.filter_a1 * prev_y + self.filter_b1 * x + self.filter_b2 * prev_x, 4)
+    #     return filtered
 
     def cb_timer(self, event):
         
         phi_dot_right = (self.right_tick - self.last_right_tick) * 2 * math.pi / (self.encoder_resolution * self.publish_period)
         phi_dot_left = (self.left_tick - self.last_left_tick) * 2 * math.pi / (self.encoder_resolution * self.publish_period)
 
-        filtered_right = self.filter_signal(self.prev_filtered_r, phi_dot_right, self.prev_r)
-        filtered_left = self.filter_signal(self.prev_filtered_l, phi_dot_left, self.prev_l)
+        # filtered_right = self.filter_signal(self.prev_filtered_r, phi_dot_right, self.prev_r)
+        # filtered_left = self.filter_signal(self.prev_filtered_l, phi_dot_left, self.prev_l)
 
         wheels_msg = WheelsCmdStamped()
-        wheels_msg.vel_left = filtered_left
-        wheels_msg.vel_right = filtered_right
+        wheels_msg.vel_left = phi_dot_left
+        wheels_msg.vel_right = phi_dot_right
 
         self.pub_wheels_speed.publish(wheels_msg)
 
         twist_msg = Twist2DStamped()
         twist_msg.header.stamp = rospy.get_rostime()
-        twist_msg.v = (self.r / 2) * (filtered_right + filtered_left)
-        twist_msg.omega = self.r * (filtered_right - filtered_left) / (2 * self.l)
+        twist_msg.v = (self.r / 2) * (phi_dot_right + phi_dot_left)
+        twist_msg.omega = self.r * (phi_dot_right - phi_dot_left) / (2 * self.l)
 
         self.pub_vel.publish(twist_msg)
 
         self.last_right_tick = self.right_tick
         self.last_left_tick = self.left_tick
-        self.prev_filtered_r = filtered_right
+        self.prev_filtered_r = phi_dot_right
         self.prev_r = phi_dot_right
-        self.prev_filtered_l = filtered_left
+        self.prev_filtered_l = phi_dot_left
         self.prev_l = phi_dot_left
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ SimpleProblem::SimpleProblem(){
 
 int SimpleProblem::project_to_crosswalk(){
 
-    float min_projection_distance = 11, duckie_distance_th = 0.086;
+    float min_projection_distance = 11, duckie_distance_th = 0.125;
     int probable_projections = 0;
 
     SimpleProblem::Projection projection;

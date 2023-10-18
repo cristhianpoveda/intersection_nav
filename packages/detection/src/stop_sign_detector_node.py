@@ -85,7 +85,7 @@ class StopSignDetector(DTROS):
         
         pose = Pose()
         pose.position.x = self._detection_distance
-        x,y,w,h = 1,1,2,2
+        x,y,w,h, vx, vy = 1,1,2,2,0,0
         
         while not self.stop:
 
